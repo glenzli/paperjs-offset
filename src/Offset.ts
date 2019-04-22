@@ -149,7 +149,7 @@ namespace Offsets {
   }
 
   /** Normalize a path, always clockwise, non-self-intersection, ignore really small components, and no one-component compound path. */
-  export function Normalize(path: PathType, areaThreshold = 0.0001) {
+  export function Normalize(path: PathType, areaThreshold = 0.01) {
     if (path.closed) {
       let ignoreArea = Math.abs(path.area * areaThreshold)
       if (!path.clockwise) {
@@ -158,6 +158,7 @@ namespace Offsets {
       path = path.unite(path, { insert: false }) as PathType
       if (path instanceof paper.CompoundPath) {
         path.children.filter(c => Math.abs((c as PathType).area) < ignoreArea).forEach(c => c.remove())
+        console.log(path.children.length)
         if (path.children.length === 1) {
           return path.children[0] as PathType
         }
@@ -171,11 +172,15 @@ namespace Offsets {
     let newPath = path.unite(path, { insert: false }) as PathType
     if (newPath instanceof paper.CompoundPath) {
       (newPath.children as Array<paper.Path>).filter(c => {
-        let sample1 = c.segments[0].location.offset
-        let sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset
-        let offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset
-        let offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset
-        return offset1 > offset2
+        if (c.segments.length > 1) {
+          let sample1 = c.segments[0].location.offset
+          let sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset
+          let offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset
+          let offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset
+          return offset1 > offset2
+        } else {
+          return true
+        }
       }).forEach(c => c.remove())
       return newPath.children.length > 1 ? newPath : newPath.children[0] as PathType
     }
@@ -227,13 +232,17 @@ export function OffsetPath(path: PathType, offset: number, mode: StrokeJoinType,
   if (path instanceof paper.Path) {
     result = Offsets.OffsetSimple(path, offset, mode, limit)
   } else {
-    let children = (path.children as Array<paper.Path>).map(c => {
+    let children = Arrayex.Flat((path.children as Array<paper.Path>).map(c => {
       let offseted = Offsets.OffsetSimple(c, offset, mode, limit)
       if (offseted.clockwise !== c.clockwise) {
         offseted.reverse()
       }
-      return offseted
-    })
+      offseted = Offsets.Normalize(offseted)
+      if (offseted instanceof paper.CompoundPath) {
+        offseted.applyMatrix = true
+        return offseted.children
+      }
+    }))
     result = new paper.CompoundPath({ children, closed: path.closed })
   }
   result.copyAttributes(path, false)
