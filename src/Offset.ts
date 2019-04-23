@@ -3,6 +3,7 @@ import { Arrayex } from 'arrayex'
 
 type HandleType = 'handleIn' | 'handleOut'
 export type StrokeJoinType = 'miter' | 'bevel' | 'round'
+export type StrokeCapType = 'round' | 'butt'
 export type PathType = paper.Path | paper.CompoundPath
 
 namespace Offsets {
@@ -81,7 +82,7 @@ namespace Offsets {
   /**
    * Connect two adjacent bezier curve, each curve is represented by two segments, create different types of joins or simply removal redundant segment.
    */
-  export function ConnectAdjacentBezier(segments1: Array<paper.Segment>, segments2: Array<paper.Segment>, origin: paper.Segment, mode: StrokeJoinType, offset: number, limit: number) {
+  export function ConnectAdjacentBezier(segments1: Array<paper.Segment>, segments2: Array<paper.Segment>, origin: paper.Segment, join: StrokeJoinType, offset: number, limit: number) {
     let curve1 = new paper.Curve(segments1[0], segments1[1])
     let curve2 = new paper.Curve(segments2[0], segments2[1])
     let intersection = curve1.getIntersections(curve2)
@@ -95,7 +96,7 @@ namespace Offsets {
       if (intersection.length === 0) {
         if (distance > Math.abs(offset) * 0.1) {
           // connect
-          switch (mode) {
+          switch (join) {
             case 'miter':
               let join = Intersection(curve1.point2, curve1.point2.add(curve1.getTangentAt(1, true)), curve2.point1, curve2.point1.add(curve2.getTangentAt(0, true)))
               // prevent sharp angle
@@ -135,14 +136,14 @@ namespace Offsets {
   /**
    * Connect all the segments together.
    */
-  function ConnectBeziers(rawSegments: Array<Array<paper.Segment>>, mode: StrokeJoinType, source: paper.Path, offset: number, limit: number) {
+  function ConnectBeziers(rawSegments: Array<Array<paper.Segment>>, join: StrokeJoinType, source: paper.Path, offset: number, limit: number) {
     let originSegments = source.segments
     let first = rawSegments[0].slice()
     for (let i = 0; i < rawSegments.length - 1; ++i) {
-      ConnectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], mode, offset, limit)
+      ConnectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit)
     }
     if (source.closed) {
-      ConnectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], mode, offset, limit)
+      ConnectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit)
       rawSegments[0][0] = first[0]
     }
     return rawSegments
@@ -158,7 +159,6 @@ namespace Offsets {
       path = path.unite(path, { insert: false }) as PathType
       if (path instanceof paper.CompoundPath) {
         path.children.filter(c => Math.abs((c as PathType).area) < ignoreArea).forEach(c => c.remove())
-        console.log(path.children.length)
         if (path.children.length === 1) {
           return path.children[0] as PathType
         }
@@ -213,38 +213,110 @@ namespace Offsets {
     return source
   }
 
-  export function OffsetSimple(path: paper.Path, offset: number, mode: StrokeJoinType, limit: number): PathType {
+  export function OffsetSimpleShape(path: paper.Path, offset: number, join: StrokeJoinType, limit: number): PathType {
     let source = PreparePath(path, offset)
     let curves = source.curves.slice()
     let raws = Arrayex.Divide(Arrayex.Flat<paper.Segment>(curves.map(curve => AdaptiveOffsetCurve(curve, offset))), 2)
-    let segments = Arrayex.Flat(ConnectBeziers(raws, mode, source, offset, limit))
+    let segments = Arrayex.Flat(ConnectBeziers(raws, join, source, offset, limit))
     let offsetPath = RemoveIntersection(new paper.Path({ segments, closed: path.closed }))
     offsetPath.reduce()
-    if (offset < 0) {
+    if (path.closed && ((path.clockwise && offset < 0) || (!path.clockwise && offset > 0))) {
       RemoveOutsiders(offsetPath, path)
     }
     return Normalize(offsetPath)
   }
+
+  function MakeRoundCap(from: paper.Segment, to: paper.Segment, offset: number) {
+    let origin = from.point.add(to.point).divide(2)
+    let normal = to.point.subtract(from.point).rotate(-90).normalize(offset)
+    let through = origin.add(normal)
+    let arc = new paper.Path.Arc({ from: from.point, to: to.point, through, insert: false })
+    return arc.segments
+  }
+
+  function ConnectSide(outer: PathType, inner: paper.Path, offset: number, cap: StrokeCapType): paper.Path {
+    if (outer instanceof paper.CompoundPath) {
+      let cs = outer.children.map(c => ({ c, a: Math.abs((c as paper.Path).area) }))
+      cs = cs.sort((c1, c2) => c2.a - c1.a)
+      outer = cs[0].c as paper.Path
+    }
+    let oSegments = (outer as paper.Path).segments.slice()
+    let iSegments = inner.segments.slice()
+    switch (cap) {
+      case 'round':
+        let heads = MakeRoundCap(iSegments[iSegments.length - 1], oSegments[0], offset)
+        let tails = MakeRoundCap(oSegments[oSegments.length - 1], iSegments[0], offset)
+        let result = new paper.Path({ segments: [...heads, ...oSegments, ...tails, ...iSegments], closed: true, insert: false })
+        result.reduce()
+        return result
+      default: return new paper.Path({ segments: [...oSegments, ...iSegments], closed: true, insert: false })
+    }
+  }
+
+  export function OffsetSimpleStroke(path: paper.Path, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number): PathType {
+    offset = path.clockwise ? offset : -offset
+    let positiveOffset = OffsetSimpleShape(path, offset, join, limit)
+    let negativeOffset = OffsetSimpleShape(path, -offset, join, limit)
+    if (path.closed) {
+      return positiveOffset.subtract(negativeOffset, { insert: false }) as PathType
+    } else {
+      let inner = negativeOffset
+      let holes = new Array<paper.Path>()
+      if (negativeOffset instanceof paper.CompoundPath) {
+        holes = negativeOffset.children.filter(c => (c as paper.Path).closed) as Array<paper.Path>
+        holes.forEach(h => h.remove())
+        inner = negativeOffset.children[0] as paper.Path
+      }
+      inner.reverse()
+      let final = ConnectSide(positiveOffset, inner as paper.Path, offset, cap) as PathType
+      if (holes.length > 0) {
+        for(let hole of holes) {
+          final = final.subtract(hole, { insert: false }) as PathType
+        }
+      }
+      return final
+    }
+  }
 }
 
-export function OffsetPath(path: PathType, offset: number, mode: StrokeJoinType, limit: number) {
+export function OffsetPath(path: PathType, offset: number, join: StrokeJoinType, limit: number) {
   let result = path
   if (path instanceof paper.Path) {
-    result = Offsets.OffsetSimple(path, offset, mode, limit)
+    result = Offsets.OffsetSimpleShape(path, offset, join, limit)
   } else {
     let children = Arrayex.Flat((path.children as Array<paper.Path>).map(c => {
-      let offseted = Offsets.OffsetSimple(c, offset, mode, limit)
+      let offseted = Offsets.OffsetSimpleShape(c, offset, join, limit)
+      offseted = Offsets.Normalize(offseted)
       if (offseted.clockwise !== c.clockwise) {
         offseted.reverse()
       }
-      offseted = Offsets.Normalize(offseted)
       if (offseted instanceof paper.CompoundPath) {
         offseted.applyMatrix = true
         return offseted.children
+      } else {
+        return offseted
       }
     }))
     result = new paper.CompoundPath({ children, closed: path.closed })
   }
   result.copyAttributes(path, false)
+  return result
+}
+
+export function OffsetStroke(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number) {
+  let result = path as PathType | paper.Group
+  if (path instanceof paper.Path) {
+    result = Offsets.OffsetSimpleStroke(path, offset, join, cap, limit)
+  } else {
+    let children = Arrayex.Flat((path.children as Array<paper.Path>).map(c => {
+      return Offsets.OffsetSimpleStroke(c, offset, join, cap, limit)
+    }))
+    result = new paper.Group({ children, insert: false })
+  }
+  result.strokeWidth = 0
+  result.fillColor = path.strokeColor
+  result.shadowBlur = path.shadowBlur
+  result.shadowColor = path.shadowColor
+  result.shadowOffset = path.shadowOffset
   return result
 }

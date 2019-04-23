@@ -8,8 +8,7 @@
   "scripts": {
     "lint": "tslint -p tsconfig.json",
     "prebuild": "rimraf dist",
-    "build": "tsc --module commonjs && rollup -c rollup.config.ts",
-    "build:bundle": "tsc --module commonjs && rollup -c rollup.bundle.config.ts"
+    "build": "tsc --module commonjs && node build.js"
   },
   "dependencies": {
     "arrayex": "^1.0.6",
