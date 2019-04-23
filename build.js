@@ -18,16 +18,18 @@ const defaultPlugins = [
   sourceMaps(),
 ]
 
-let buildLib = rollup.rollup({
+let tasks = []
+
+tasks.push(rollup.rollup({
   input: 'src/index.ts',
   external: ['arrayex', 'paper'],
   plugins: defaultPlugins
 }).then(bundle => {
   bundle.write({ format: 'umd', file: pkg.main, name: camelCase(libraryName), sourcemap: true })
   bundle.write({ format: 'es', file: pkg.module, name: camelCase(libraryName), sourcemap: true })
-})
+}))
 
-let buildBundle = rollup.rollup({
+tasks.push(rollup.rollup({
   input: 'src/bundle.ts',
   output: [
     { file: 'dist/paperjs-offset.js', format: 'iife', sourcemap: false },
@@ -36,17 +38,20 @@ let buildBundle = rollup.rollup({
   plugins: defaultPlugins
 }).then(bundle => {
   bundle.write({ format: 'iife', file: 'dist/paperjs-offset.js', sourcemap: false })
-})
+  bundle.write({ format: 'iife', file: 'demo/paperjs-offset.js', sourcemap: false })
+}))
 
-let buildMinify = rollup.rollup({
+tasks.push(rollup.rollup({
   input: 'src/bundle.ts',
   external: ['paper'],
   plugins: defaultPlugins.concat([uglify()])
 }).then(bundle => {
   bundle.write({ format: 'iife', file: 'dist/paperjs-offset.min.js', sourcemap: false })
   bundle.write({ format: 'iife', file: 'demo/paperjs-offset.min.js', sourcemap: false })
-})
+}))
 
-Promise.all([buildLib, buildBundle, buildMinify]).then(() => {
-  process.exit()
+Promise.all(tasks).then(() => {
+  setTimeout(() => {
+    process.exit()
+  }, 3000)
 })

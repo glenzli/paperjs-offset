@@ -15,7 +15,7 @@ import ExtendPaperJs from 'paperjs-offset'
 ExtendPaperJs(paper)
 ```
 Or for web development, include the **paperjs-offset.js** or **paperjs-offset.min.js** in demo folder.
-<br/>The library extends paper.Path and paper.CompoundPath object, with offset/offsetStroke functions.
+<br/>The library extends **paper.Path** and **paper.CompoundPath** object, with offset/offsetStroke functions.
 ```javascript
 let path = new paper.Path(/* params */)
 path.offset(10, { join: 'round' })
