@@ -28,6 +28,7 @@ Both offset/offsetStroke take the form of **f(offset: number, options?: {})**, t
 <br/>&nbsp;&nbsp;**insert**: whether the result should be insert into the canvas, default is **true**.
 
 ## Preview
+There are some cases that the library may return weird result or failed silently, please let me noticed in the project issues. And in some cases the library will yeild an ok result than a perfect one.
 ![Preview](/public/preview.jpg)
 
 ## Development
