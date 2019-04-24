@@ -177,9 +177,6 @@ namespace Offsets {
 
   /** Remove self intersection when offset is negative by point direction dectection. */
   export function RemoveIntersection(path: PathType) {
-    if (!path.clockwise) {
-      path.reverse()
-    }
     let newPath = path.unite(path, { insert: false }) as PathType
     if (newPath instanceof paper.CompoundPath) {
       (newPath.children as Array<paper.Path>).filter(c => {
@@ -218,21 +215,30 @@ namespace Offsets {
     })
   }
 
-  function PreparePath(path: paper.Path, offset: number) {
+  function PreparePath(path: paper.Path, offset: number): [paper.Path, number] {
     let source = path.clone({ insert: false }) as paper.Path
     source.reduce()
-    return source
+    if (!path.clockwise) {
+      source.reverse()
+      offset = -offset
+    }
+    return [source, offset]
   }
 
   export function OffsetSimpleShape(path: paper.Path, offset: number, join: StrokeJoinType, limit: number): PathType {
-    let source = PreparePath(path, offset)
+    let source: paper.Path
+    [source, offset] = PreparePath(path, offset)
     let curves = source.curves.slice()
     let raws = Arrayex.Divide(Arrayex.Flat<paper.Segment>(curves.map(curve => AdaptiveOffsetCurve(curve, offset))), 2)
     let segments = Arrayex.Flat(ConnectBeziers(raws, join, source, offset, limit))
     let offsetPath = RemoveIntersection(new paper.Path({ segments, closed: path.closed }))
     offsetPath.reduce()
-    if (path.closed && ((path.clockwise && offset < 0) || (!path.clockwise && offset > 0))) {
+    if (source.closed && ((source.clockwise && offset < 0) || (!source.clockwise && offset > 0))) {
       RemoveOutsiders(offsetPath, path)
+    }
+    // recovery path
+    if (source.clockwise !== path.clockwise) {
+      offsetPath.reverse()
     }
     return Normalize(offsetPath)
   }

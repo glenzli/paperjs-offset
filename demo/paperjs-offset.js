@@ -435,9 +435,6 @@
         Offsets.Normalize = Normalize;
         /** Remove self intersection when offset is negative by point direction dectection. */
         function RemoveIntersection(path) {
-            if (!path.clockwise) {
-                path.reverse();
-            }
             var newPath = path.unite(path, { insert: false });
             if (newPath instanceof paper.CompoundPath) {
                 newPath.children.filter(function (c) {
@@ -479,17 +476,27 @@
         function PreparePath(path, offset) {
             var source = path.clone({ insert: false });
             source.reduce();
-            return source;
+            if (!path.clockwise) {
+                source.reverse();
+                offset = -offset;
+            }
+            return [source, offset];
         }
         function OffsetSimpleShape(path, offset, join, limit) {
-            var source = PreparePath(path, offset);
+            var _a;
+            var source;
+            _a = PreparePath(path, offset), source = _a[0], offset = _a[1];
             var curves = source.curves.slice();
             var raws = Arrayex.Divide(Arrayex.Flat(curves.map(function (curve) { return AdaptiveOffsetCurve(curve, offset); })), 2);
             var segments = Arrayex.Flat(ConnectBeziers(raws, join, source, offset, limit));
             var offsetPath = RemoveIntersection(new paper.Path({ segments: segments, closed: path.closed }));
             offsetPath.reduce();
-            if (path.closed && ((path.clockwise && offset < 0) || (!path.clockwise && offset > 0))) {
+            if (source.closed && ((source.clockwise && offset < 0) || (!source.clockwise && offset > 0))) {
                 RemoveOutsiders(offsetPath, path);
+            }
+            // recovery path
+            if (source.clockwise !== path.clockwise) {
+                offsetPath.reverse();
             }
             return Normalize(offsetPath);
         }
