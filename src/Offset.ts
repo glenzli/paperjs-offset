@@ -149,6 +149,14 @@ namespace Offsets {
     return rawSegments
   }
 
+  function Decompound(path: PathType) {
+    if (path.children.length === 1) {
+      path = path.children[0] as paper.Path
+      path.remove() // remove from parent, this is critical, or the style attributes will be ignored
+    }
+    return path
+  }
+
   /** Normalize a path, always clockwise, non-self-intersection, ignore really small components, and no one-component compound path. */
   export function Normalize(path: PathType, areaThreshold = 0.01) {
     if (path.closed) {
@@ -160,7 +168,7 @@ namespace Offsets {
       if (path instanceof paper.CompoundPath) {
         path.children.filter(c => Math.abs((c as PathType).area) < ignoreArea).forEach(c => c.remove())
         if (path.children.length === 1) {
-          return path.children[0] as PathType
+          return Decompound(path)
         }
       }
     }
@@ -169,6 +177,9 @@ namespace Offsets {
 
   /** Remove self intersection when offset is negative by point direction dectection. */
   export function RemoveIntersection(path: PathType) {
+    if (!path.clockwise) {
+      path.reverse()
+    }
     let newPath = path.unite(path, { insert: false }) as PathType
     if (newPath instanceof paper.CompoundPath) {
       (newPath.children as Array<paper.Path>).filter(c => {
@@ -182,7 +193,7 @@ namespace Offsets {
           return true
         }
       }).forEach(c => c.remove())
-      return newPath.children.length > 1 ? newPath : newPath.children[0] as PathType
+      return Decompound(newPath)
     }
     return path
   }

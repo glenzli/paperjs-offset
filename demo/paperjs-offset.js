@@ -407,6 +407,13 @@
             }
             return rawSegments;
         }
+        function Decompound(path) {
+            if (path.children.length === 1) {
+                path = path.children[0];
+                path.remove(); // remove from parent, this is critical, or the style attributes will be ignored
+            }
+            return path;
+        }
         /** Normalize a path, always clockwise, non-self-intersection, ignore really small components, and no one-component compound path. */
         function Normalize(path, areaThreshold) {
             if (areaThreshold === void 0) { areaThreshold = 0.01; }
@@ -419,7 +426,7 @@
                 if (path instanceof paper.CompoundPath) {
                     path.children.filter(function (c) { return Math.abs(c.area) < ignoreArea_1; }).forEach(function (c) { return c.remove(); });
                     if (path.children.length === 1) {
-                        return path.children[0];
+                        return Decompound(path);
                     }
                 }
             }
@@ -428,6 +435,9 @@
         Offsets.Normalize = Normalize;
         /** Remove self intersection when offset is negative by point direction dectection. */
         function RemoveIntersection(path) {
+            if (!path.clockwise) {
+                path.reverse();
+            }
             var newPath = path.unite(path, { insert: false });
             if (newPath instanceof paper.CompoundPath) {
                 newPath.children.filter(function (c) {
@@ -442,7 +452,7 @@
                         return true;
                     }
                 }).forEach(function (c) { return c.remove(); });
-                return newPath.children.length > 1 ? newPath : newPath.children[0];
+                return Decompound(newPath);
             }
             return path;
         }

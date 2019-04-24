@@ -102,6 +102,23 @@
     cs2.strokeColor = 'rgba(117, 170, 173, 0.5)'
     cs2.offsetStroke(25, { cap: 'round' })
     cs2.bringToFront()
+
+    // edge cases
+    let ec1 = new paper.Path({ pathData: 'M466,467c0,0 -105,-235 0,0c-376.816,-119.63846 -469.06596,-146.09389 -650.61329,-266.59735c-282.68388,-230.49081 300.86045,-10.26825 452.77726,121.52815z', fillColor: 'rgba(156, 104, 193, 0.5)' })
+    ec1.translate(-450, -250)
+    ec1.scale(0.4)
+    ec1.offset(10)
+    ec1.offset(-10).offset(-10).offset(-10)
+
+    let ec2 = new paper.Path({ pathData: 'M466,467c-65,-34 136,64 0,0c-391,-270 62,-670 62,-670l-463,370z', strokeColor: 'rgba(239, 209, 88, 0.5)', strokeWidth: 3 })
+    ec2.scale(0.4)
+    ec2.translate(-350, 20)
+    ec2.offsetStroke(10)
+
+    let ec3 = new paper.Path({ pathData: 'M466,467c-65,-34 136,64 0,0c-391,-270 520,-471 522,-137c-214,-144 -1489,123 -923,-163z', fillColor: 'rgb(191, 91, 91, 0.5)' })
+    ec3.scale(0.4)
+    ec3.translate(-100, -150)
+    ec3.offset(-10)
   }
   window.onload = RunDemo
 })()
