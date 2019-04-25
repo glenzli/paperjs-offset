@@ -33,10 +33,11 @@ There are some cases that the library may return weird result or failed silently
 
 ## Development
 ```sh
-# build es5/umd//iife packages
+# build es5/umd/iife packages
 npm run build
 ```
 You can use open demo folder for simple cases demonstration.
+<br/>*I've noticed there is a react adaption of paper.js but no vue adaption, so I create a vue adaption of paper.js, you can visit this [repo](https://github.com/luz-alphacode/paper-vueify) if you are interested.*
 
 ## License
 Distributed under the MIT license. See [LICENSE](https://github.com/luz-alphacode/paperjs-offset/blob/master/LICENSE) for detail.
