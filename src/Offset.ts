@@ -191,11 +191,6 @@ namespace Offsets {
       (newPath.children as Array<paper.Path>).filter(c => {
         if (c.segments.length > 1) {
           return !IsSameDirection(c, path)
-          // let sample1 = c.segments[0].location.offset
-          // let sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset
-          // let offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset
-          // let offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset
-          // return offset1 > offset2
         } else {
           return true
         }
@@ -335,6 +330,7 @@ export function OffsetPath(path: PathType, offset: number, join: StrokeJoinType,
     result = new paper.CompoundPath({ children, insert: false })
   }
   result.copyAttributes(nonSIPath, false)
+  result.remove()
   return result
 }
 

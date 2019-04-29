@@ -449,11 +449,6 @@
                 newPath.children.filter(function (c) {
                     if (c.segments.length > 1) {
                         return !IsSameDirection(c, path);
-                        // let sample1 = c.segments[0].location.offset
-                        // let sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset
-                        // let offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset
-                        // let offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset
-                        // return offset1 > offset2
                     }
                     else {
                         return true;
@@ -596,6 +591,7 @@
             result = new paper.CompoundPath({ children: children, insert: false });
         }
         result.copyAttributes(nonSIPath, false);
+        result.remove();
         return result;
     }
     function OffsetStroke(path, offset, join, cap, limit) {
