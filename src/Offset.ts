@@ -175,17 +175,27 @@ namespace Offsets {
     return path
   }
 
+  export function IsSameDirection(partialPath: paper.Path, fullPath: PathType) {
+    let offset1 = partialPath.segments[0].location.offset
+    let offset2 = partialPath.segments[Math.max(1, Math.floor(partialPath.segments.length / 2))].location.offset
+    let sampleOffset = (offset1 + offset2) / 3
+    let originOffset1 = fullPath.getNearestLocation(partialPath.getPointAt(sampleOffset)).offset
+    let originOffset2 = fullPath.getNearestLocation(partialPath.getPointAt(2 * sampleOffset)).offset
+    return originOffset1 < originOffset2
+  }
+
   /** Remove self intersection when offset is negative by point direction dectection. */
   export function RemoveIntersection(path: PathType) {
     let newPath = path.unite(path, { insert: false }) as PathType
     if (newPath instanceof paper.CompoundPath) {
       (newPath.children as Array<paper.Path>).filter(c => {
         if (c.segments.length > 1) {
-          let sample1 = c.segments[0].location.offset
-          let sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset
-          let offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset
-          let offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset
-          return offset1 > offset2
+          return !IsSameDirection(c, path)
+          // let sample1 = c.segments[0].location.offset
+          // let sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset
+          // let offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset
+          // let offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset
+          // return offset1 > offset2
         } else {
           return true
         }
@@ -231,7 +241,7 @@ namespace Offsets {
     let curves = source.curves.slice()
     let raws = Arrayex.Divide(Arrayex.Flat<paper.Segment>(curves.map(curve => AdaptiveOffsetCurve(curve, offset))), 2)
     let segments = Arrayex.Flat(ConnectBeziers(raws, join, source, offset, limit))
-    let offsetPath = RemoveIntersection(new paper.Path({ segments, closed: path.closed }))
+    let offsetPath = RemoveIntersection(new paper.Path({ segments, insert: false, closed: path.closed }))
     offsetPath.reduce()
     if (source.closed && ((source.clockwise && offset < 0) || (!source.clockwise && offset > 0))) {
       RemoveOutsiders(offsetPath, path)
@@ -297,43 +307,52 @@ namespace Offsets {
 }
 
 export function OffsetPath(path: PathType, offset: number, join: StrokeJoinType, limit: number) {
-  let result = path
-  if (path instanceof paper.Path) {
-    result = Offsets.OffsetSimpleShape(path, offset, join, limit)
+  let nonSIPath = path.unite(path, { insert: false }) as PathType
+  let result = nonSIPath
+  if (nonSIPath instanceof paper.Path) {
+    result = Offsets.OffsetSimpleShape(nonSIPath, offset, join, limit)
   } else {
-    let children = Arrayex.Flat((path.children as Array<paper.Path>).map(c => {
-      let offseted = Offsets.OffsetSimpleShape(c, offset, join, limit)
-      offseted = Offsets.Normalize(offseted)
-      if (offseted.clockwise !== c.clockwise) {
-        offseted.reverse()
-      }
-      if (offseted instanceof paper.CompoundPath) {
-        offseted.applyMatrix = true
-        return offseted.children
+    let children = Arrayex.Flat((nonSIPath.children as Array<paper.Path>).map(c => {
+      if (c.segments.length > 1) {
+        if (!Offsets.IsSameDirection(c, path)) {
+          c.reverse()
+        }
+        let offseted = Offsets.OffsetSimpleShape(c, offset, join, limit)
+        offseted = Offsets.Normalize(offseted)
+        if (offseted.clockwise !== c.clockwise) {
+          offseted.reverse()
+        }
+        if (offseted instanceof paper.CompoundPath) {
+          offseted.applyMatrix = true
+          return offseted.children
+        } else {
+          return offseted
+        }
       } else {
-        return offseted
+        return null
       }
-    }))
-    result = new paper.CompoundPath({ children, closed: path.closed })
+    }), false)
+    result = new paper.CompoundPath({ children })
   }
-  result.copyAttributes(path, false)
+  result.copyAttributes(nonSIPath, false)
   return result
 }
 
 export function OffsetStroke(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number) {
-  let result = path as PathType | paper.Group
-  if (path instanceof paper.Path) {
-    result = Offsets.OffsetSimpleStroke(path, offset, join, cap, limit)
+  let nonSIPath = path.unite(path, { insert: false }) as PathType
+  let result = nonSIPath as PathType
+  if (nonSIPath instanceof paper.Path) {
+    result = Offsets.OffsetSimpleStroke(nonSIPath, offset, join, cap, limit)
   } else {
-    let children = Arrayex.Flat((path.children as Array<paper.Path>).map(c => {
+    let children = Arrayex.Flat((nonSIPath.children as Array<paper.Path>).map(c => {
       return Offsets.OffsetSimpleStroke(c, offset, join, cap, limit)
     }))
-    result = new paper.Group({ children, insert: false })
+    result = children.reduce((c1, c2) => c1.unite(c2, { insert: false }) as PathType)
   }
   result.strokeWidth = 0
-  result.fillColor = path.strokeColor
-  result.shadowBlur = path.shadowBlur
-  result.shadowColor = path.shadowColor
-  result.shadowOffset = path.shadowOffset
+  result.fillColor = nonSIPath.strokeColor
+  result.shadowBlur = nonSIPath.shadowBlur
+  result.shadowColor = nonSIPath.shadowColor
+  result.shadowOffset = nonSIPath.shadowOffset
   return result
 }

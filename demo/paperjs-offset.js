@@ -433,17 +433,27 @@
             return path;
         }
         Offsets.Normalize = Normalize;
+        function IsSameDirection(partialPath, fullPath) {
+            var offset1 = partialPath.segments[0].location.offset;
+            var offset2 = partialPath.segments[Math.max(1, Math.floor(partialPath.segments.length / 2))].location.offset;
+            var sampleOffset = (offset1 + offset2) / 3;
+            var originOffset1 = fullPath.getNearestLocation(partialPath.getPointAt(sampleOffset)).offset;
+            var originOffset2 = fullPath.getNearestLocation(partialPath.getPointAt(2 * sampleOffset)).offset;
+            return originOffset1 < originOffset2;
+        }
+        Offsets.IsSameDirection = IsSameDirection;
         /** Remove self intersection when offset is negative by point direction dectection. */
         function RemoveIntersection(path) {
             var newPath = path.unite(path, { insert: false });
             if (newPath instanceof paper.CompoundPath) {
                 newPath.children.filter(function (c) {
                     if (c.segments.length > 1) {
-                        var sample1 = c.segments[0].location.offset;
-                        var sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset;
-                        var offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset;
-                        var offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset;
-                        return offset1 > offset2;
+                        return !IsSameDirection(c, path);
+                        // let sample1 = c.segments[0].location.offset
+                        // let sample2 = c.segments[Math.max(1, Math.floor(c.segments.length / 2))].location.offset
+                        // let offset1 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3)).offset
+                        // let offset2 = path.getNearestLocation(c.getPointAt((sample1 + sample2) / 3 * 2)).offset
+                        // return offset1 > offset2
                     }
                     else {
                         return true;
@@ -489,7 +499,7 @@
             var curves = source.curves.slice();
             var raws = Arrayex.Divide(Arrayex.Flat(curves.map(function (curve) { return AdaptiveOffsetCurve(curve, offset); })), 2);
             var segments = Arrayex.Flat(ConnectBeziers(raws, join, source, offset, limit));
-            var offsetPath = RemoveIntersection(new paper.Path({ segments: segments, closed: path.closed }));
+            var offsetPath = RemoveIntersection(new paper.Path({ segments: segments, insert: false, closed: path.closed }));
             offsetPath.reduce();
             if (source.closed && ((source.clockwise && offset < 0) || (!source.clockwise && offset > 0))) {
                 RemoveOutsiders(offsetPath, path);
@@ -555,46 +565,56 @@
         Offsets.OffsetSimpleStroke = OffsetSimpleStroke;
     })(Offsets || (Offsets = {}));
     function OffsetPath(path, offset, join, limit) {
-        var result = path;
-        if (path instanceof paper.Path) {
-            result = Offsets.OffsetSimpleShape(path, offset, join, limit);
+        var nonSIPath = path.unite(path, { insert: false });
+        var result = nonSIPath;
+        if (nonSIPath instanceof paper.Path) {
+            result = Offsets.OffsetSimpleShape(nonSIPath, offset, join, limit);
         }
         else {
-            var children = Arrayex.Flat(path.children.map(function (c) {
-                var offseted = Offsets.OffsetSimpleShape(c, offset, join, limit);
-                offseted = Offsets.Normalize(offseted);
-                if (offseted.clockwise !== c.clockwise) {
-                    offseted.reverse();
-                }
-                if (offseted instanceof paper.CompoundPath) {
-                    offseted.applyMatrix = true;
-                    return offseted.children;
+            var children = Arrayex.Flat(nonSIPath.children.map(function (c) {
+                if (c.segments.length > 1) {
+                    if (!Offsets.IsSameDirection(c, path)) {
+                        c.reverse();
+                    }
+                    var offseted = Offsets.OffsetSimpleShape(c, offset, join, limit);
+                    offseted = Offsets.Normalize(offseted);
+                    if (offseted.clockwise !== c.clockwise) {
+                        offseted.reverse();
+                    }
+                    if (offseted instanceof paper.CompoundPath) {
+                        offseted.applyMatrix = true;
+                        return offseted.children;
+                    }
+                    else {
+                        return offseted;
+                    }
                 }
                 else {
-                    return offseted;
+                    return null;
                 }
-            }));
-            result = new paper.CompoundPath({ children: children, closed: path.closed });
+            }), false);
+            result = new paper.CompoundPath({ children: children });
         }
-        result.copyAttributes(path, false);
+        result.copyAttributes(nonSIPath, false);
         return result;
     }
     function OffsetStroke(path, offset, join, cap, limit) {
-        var result = path;
-        if (path instanceof paper.Path) {
-            result = Offsets.OffsetSimpleStroke(path, offset, join, cap, limit);
+        var nonSIPath = path.unite(path, { insert: false });
+        var result = nonSIPath;
+        if (nonSIPath instanceof paper.Path) {
+            result = Offsets.OffsetSimpleStroke(nonSIPath, offset, join, cap, limit);
         }
         else {
-            var children = Arrayex.Flat(path.children.map(function (c) {
+            var children = Arrayex.Flat(nonSIPath.children.map(function (c) {
                 return Offsets.OffsetSimpleStroke(c, offset, join, cap, limit);
             }));
-            result = new paper.Group({ children: children, insert: false });
+            result = children.reduce(function (c1, c2) { return c1.unite(c2, { insert: false }); });
         }
         result.strokeWidth = 0;
-        result.fillColor = path.strokeColor;
-        result.shadowBlur = path.shadowBlur;
-        result.shadowColor = path.shadowColor;
-        result.shadowOffset = path.shadowOffset;
+        result.fillColor = nonSIPath.strokeColor;
+        result.shadowBlur = nonSIPath.shadowBlur;
+        result.shadowColor = nonSIPath.shadowColor;
+        result.shadowOffset = nonSIPath.shadowOffset;
         return result;
     }
 
