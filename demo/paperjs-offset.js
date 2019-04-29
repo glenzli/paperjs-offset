@@ -593,7 +593,7 @@
                     return null;
                 }
             }), false);
-            result = new paper.CompoundPath({ children: children });
+            result = new paper.CompoundPath({ children: children, insert: false });
         }
         result.copyAttributes(nonSIPath, false);
         return result;

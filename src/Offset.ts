@@ -332,7 +332,7 @@ export function OffsetPath(path: PathType, offset: number, join: StrokeJoinType,
         return null
       }
     }), false)
-    result = new paper.CompoundPath({ children })
+    result = new paper.CompoundPath({ children, insert: false })
   }
   result.copyAttributes(nonSIPath, false)
   return result
