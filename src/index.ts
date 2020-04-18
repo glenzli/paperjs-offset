@@ -1,63 +1,56 @@
-import paper from 'paper'
-import { OffsetPath, StrokeJoinType, PathType, StrokeCapType, OffsetStroke } from './Offset'
+import paper from 'paper';
+import { StrokeJoinType, PathType, StrokeCapType, offsetPath, offsetStroke } from './offset';
 
 export interface OffsetOptions {
-  join?: StrokeJoinType,
-  cap?: StrokeCapType,
-  limit?: number,
-  insert?: boolean,
+  join?: StrokeJoinType;
+  cap?: StrokeCapType;
+  limit?: number;
+  insert?: boolean;
 }
 
-declare module 'paper' {
-  interface Path {
-    offset(offset: number, options?: OffsetOptions): PathType
-    offsetStroke(offset: number, options?: OffsetOptions): PathType | paper.Group
+export class PaperOffset {
+  public static offset(path: PathType, offset: number, options?: OffsetOptions): PathType {
+    options = options || {};
+    const newPath = offsetPath(path, offset, options.join || 'miter', options.limit || 10);
+    if (options.insert === undefined) {
+      options.insert = true;
+    }
+    if (options.insert) {
+      (path.parent || paper.project.activeLayer).addChild(newPath);
+    }
+    return newPath;
   }
 
-  interface CompoundPath {
-    offset(offset: number, options?: OffsetOptions): PathType
-    offsetStroke(offset: number, options?: OffsetOptions): PathType | paper.Group
+  public static offsetStroke(path: PathType, offset: number, options?: OffsetOptions): PathType {
+    options = options || {};
+    const newStroke = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10);
+    if (options.insert === undefined) {
+      options.insert = true;
+    }
+    if (options.insert) {
+      (path.parent || paper.project.activeLayer).addChild(newStroke);
+    }
+    return newStroke;
   }
 }
 
-function PrototypedOffset(path: PathType, offset: number, options?: OffsetOptions) {
-  options = options || {}
-  let offsetPath = OffsetPath(path, offset, options.join || 'miter', options.limit || 10)
-  if (options.insert === undefined) {
-    options.insert = true
-  }
-  if (options.insert) {
-    (path.parent || paper.project.activeLayer).addChild(offsetPath)
-  }
-  return offsetPath
-}
+/**
+ * @deprecated EXTEND existing paper module is not recommend anymore
+ */
+export default function ExtendPaperJs(paperNs: any) {
+  paperNs.Path.prototype.offset = function(offset: number, options?: OffsetOptions) {
+    return PaperOffset.offset(this, offset, options);
+  };
 
-function PrototypedOffsetStroke(path: PathType, offset: number, options?: OffsetOptions) {
-  options = options || {}
-  let offsetPath = OffsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10)
-  if (options.insert === undefined) {
-    options.insert = true
-  }
-  if (options.insert) {
-    (path.parent || paper.project.activeLayer).addChild(offsetPath)
-  }
-  return offsetPath
-}
+  paperNs.Path.prototype.offsetStroke = function(offset: number, options?: OffsetOptions) {
+    return PaperOffset.offsetStroke(this, offset, options);
+  };
 
-export default function ExtendPaperJs(paper: any) {
-  paper.Path.prototype.offset = function(offset: number, options?: OffsetOptions) {
-    return PrototypedOffset(this, offset, options)
-  }
+  paperNs.CompoundPath.prototype.offset = function(offset: number, options?: OffsetOptions) {
+    return PaperOffset.offset(this, offset, options);
+  };
 
-  paper.Path.prototype.offsetStroke = function (offset: number, options?: OffsetOptions) {
-    return PrototypedOffsetStroke(this, offset, options)
-  }
-
-  paper.CompoundPath.prototype.offset = function(offset: number, options?: OffsetOptions) {
-    return PrototypedOffset(this, offset, options)
-  }
-
-  paper.CompoundPath.prototype.offsetStroke = function (offset: number, options?: OffsetOptions) {
-    return PrototypedOffsetStroke(this, offset, options)
-  }
+  paperNs.CompoundPath.prototype.offsetStroke = function(offset: number, options?: OffsetOptions) {
+    return PaperOffset.offsetStroke(this, offset, options);
+  };
 }
