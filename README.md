@@ -21,6 +21,7 @@ PaperOffset.offsetStroke(path, offset, options)
 ```
 
 You may still use the old way to extend paperjs module, which is **deprecated** and will be removed in future version.
+<br/><font color="#a84040">**Warning:** The library no longer carries extended definitions for paper.Path & paper.CompoundPath, you may need your own declarations to use extension in typescript.</font>
 ```javascript
 import ExtendPaperJs from 'paperjs-offset'
 // extend paper.Path, paper.CompoundPath with offset, offsetStroke method
@@ -41,11 +42,23 @@ path.offset(10, { join: 'round' })
 path.offsetStroke(10, { cap: 'round' })
 ```
 
-Both offset/offsetStroke take the form of **f(path: Path | CompoundPath, offset: number, options?: {})**, the options have following parameters:
-<br/>&nbsp;&nbsp;**join**: the join style of offset path, you can choose **'miter'**, **'bevel'** or **'round'**, default is **'miter'**.
-<br/>&nbsp;&nbsp;**limit**: the limit for miter style (refer the miterLimit's definition in paper.js).
-<br/>&nbsp;&nbsp;**cap**: the cap style of offset (only available in offsetStroke), you can choose **'butt'** and **'round'** (**'square'** is not supported yet), default is **'butt'**
-<br/>&nbsp;&nbsp;**insert**: whether the result should be insert into the canvas, default is **true**.
+Sample references:
+```typescript
+offset(path: paper.Path | paper.CompoundPath, offset: number, options?: OffsetOptions): paper.Path | paper.CompoundPath
+
+offsetStroke(path: paper.Path | paper.CompoundPath, offset: number, options?: OffsetOptions): paper.Path | paper.CompoundPath
+
+interface OffsetOptions {
+  // the join style of offset path, default is 'miter'
+  join?: 'miter' | 'bevel' | 'round';
+  // the cap style of offset (only validate for offsetStroke), default is 'butt', ('square' will be supported in future)
+  cap?: 'butt' | 'round';
+  // the limit for miter style (refer to the miterLimit definition in paper)
+  limit?: number;
+  // whether the result should be insert into the canvas, default is true
+  insert?: boolean;
+}
+```
 
 ## Preview
 There are some cases that the library may return weird result or failed silently, please let me noticed in the project issues. And in some cases the library will yeild an ok result than a perfect one. Currently the library should give good results for closed shapes, but may fail in some open curve cases, I'm still working on it.
