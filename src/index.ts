@@ -23,14 +23,14 @@ export class PaperOffset {
 
   public static offsetStroke(path: PathType, offset: number, options?: OffsetOptions): PathType {
     options = options || {};
-    const newStroke = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10);
+    const newPath = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10);
     if (options.insert === undefined) {
       options.insert = true;
     }
     if (options.insert) {
-      (path.parent || paper.project.activeLayer).addChild(newStroke);
+      (path.parent || paper.project.activeLayer).addChild(newPath);
     }
-    return newStroke;
+    return newPath;
   }
 }
 

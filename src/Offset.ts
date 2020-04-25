@@ -1,5 +1,4 @@
 import paper from 'paper';
-import { Arrayex } from 'arrayex';
 
 export type StrokeJoinType = 'miter' | 'bevel' | 'round';
 export type StrokeCapType = 'round' | 'butt';
@@ -205,7 +204,7 @@ function removeIntersection(path: PathType) {
 
 function getSegments(path: PathType) {
   if (path instanceof paper.CompoundPath) {
-    return Arrayex.Flat<paper.Segment>(path.children.map((c) => (c as paper.Path).segments));
+    return path.children.map((c) => (c as paper.Path).segments).flat();
   } else {
     return (path as paper.Path).segments;
   }
@@ -237,8 +236,12 @@ function offsetSimpleShape(path: paper.Path, offset: number, join: StrokeJoinTyp
   let source: paper.Path;
   [source, offset] = preparePath(path, offset);
   const curves = source.curves.slice();
-  const raws = Arrayex.Divide(Arrayex.Flat<paper.Segment>(curves.map((curve) => adaptiveOffsetCurve(curve, offset))), 2);
-  const segments = Arrayex.Flat(connectBeziers(raws, join, source, offset, limit));
+  const offsetCurves = curves.map((curve) => adaptiveOffsetCurve(curve, offset)).flat();
+  const raws: paper.Segment[][] = [];
+  for (let i = 0; i < offsetCurves.length; i += 2) {
+    raws.push(offsetCurves.slice(i, i + 2));
+  }
+  const segments = connectBeziers(raws, join, source, offset, limit).flat();
   const newPath = removeIntersection(new paper.Path({ segments, insert: false, closed: path.closed }));
   newPath.reduce({});
   if (source.closed && ((source.clockwise && offset < 0) || (!source.clockwise && offset > 0))) {
@@ -309,7 +312,7 @@ export function offsetPath(path: PathType, offset: number, join: StrokeJoinType,
   if (nonSIPath instanceof paper.Path) {
     result = offsetSimpleShape(nonSIPath, offset, join, limit);
   } else {
-    const children = Arrayex.Flat((nonSIPath.children as paper.Path[]).map((c) => {
+    const offsetParts = (nonSIPath.children as paper.Path[]).map((c) => {
       if (c.segments.length > 1) {
         if (!isSameDirection(c, path)) {
           c.reverse();
@@ -328,7 +331,8 @@ export function offsetPath(path: PathType, offset: number, join: StrokeJoinType,
       } else {
         return null;
       }
-    }), false);
+    });
+    const children = offsetParts.flat().filter((c) => !!c) as paper.Item[];
     result = new paper.CompoundPath({ children, insert: false });
   }
   result.copyAttributes(nonSIPath, false);
@@ -342,9 +346,9 @@ export function offsetStroke(path: PathType, offset: number, join: StrokeJoinTyp
   if (nonSIPath instanceof paper.Path) {
     result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit);
   } else {
-    const children = Arrayex.Flat((nonSIPath.children as paper.Path[]).map((c) => {
+    const children = (nonSIPath.children as paper.Path[]).flatMap((c) => {
       return offsetSimpleStroke(c, offset, join, cap, limit);
-    }));
+    });
     result = children.reduce((c1, c2) => c1.unite(c2, { insert: false }) as PathType);
   }
   result.strokeWidth = 0;

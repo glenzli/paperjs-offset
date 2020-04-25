@@ -22,7 +22,7 @@ let tasks = []
 
 tasks.push(rollup.rollup({
   input: 'src/index.ts',
-  external: ['arrayex', 'paper'],
+  external: ['paper'],
   plugins: defaultPlugins
 }).then(bundle => {
   bundle.write({ format: 'umd', file: pkg.main, name: camelCase(libraryName), sourcemap: true })

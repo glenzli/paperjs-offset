@@ -11,7 +11,6 @@
     "build": "tsc --module commonjs && node build.js"
   },
   "dependencies": {
-    "arrayex": "^1.0.6",
     "paper": "^0.12.4"
   },
   "devDependencies": {
