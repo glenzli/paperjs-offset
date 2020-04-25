@@ -21,11 +21,13 @@ PaperOffset.offsetStroke(path, offset, options)
 ```
 
 You may still use the old way to extend paperjs module, which is **deprecated** and will be removed in future version.
-<br/><font color="#a84040">**Warning:** The library no longer carries extended definitions for paper.Path & paper.CompoundPath, you may need your own declarations to use extension in typescript.</font>
-```javascript
+```typescript
 import ExtendPaperJs from 'paperjs-offset'
 // extend paper.Path, paper.CompoundPath with offset, offsetStroke method
-ExtendPaperJs(paper)
+ExtendPaperJs(paper);
+
+// Warning: The library no longer include extended definitions for paper.Path & paper.CompoundPath, you may need your own declarations to use extension in typescript.
+(path as any).offset(10);
 ```
 
 Or for web development, include the **paperjs-offset.js** or **paperjs-offset.min.js** in demo folder.
