@@ -17,6 +17,9 @@
     cc.translate(new paper.Point(-100, -100));
 
     PaperOffset.offset(cc, 24);
+
+    const c = new paper.Path({pathData: "M4,11L5,13", strokeColor: 'rgba(156, 104, 193, 0.5)', strokeWidth: 4});
+    PaperOffset.offsetStroke(c, 10, {cap: "round", join: "round"});
   }
 
   window.onload = DebugCase;

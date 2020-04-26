@@ -1,5 +1,5 @@
 import paper from 'paper';
-import { StrokeJoinType, PathType, StrokeCapType, offsetPath, offsetStroke } from './offset';
+import { StrokeJoinType, PathType, StrokeCapType, offsetPath, offsetStroke } from './offset_core';
 
 export interface OffsetOptions {
   join?: StrokeJoinType;

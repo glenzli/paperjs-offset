@@ -188,16 +188,18 @@ function isSameDirection(partialPath: paper.Path, fullPath: PathType) {
 
 /** Remove self intersection when offset is negative by point direction dectection. */
 function removeIntersection(path: PathType) {
-  const newPath = path.unite(path, { insert: false }) as PathType;
-  if (newPath instanceof paper.CompoundPath) {
-    (newPath.children as paper.Path[]).filter((c) => {
-      if (c.segments.length > 1) {
-        return !isSameDirection(c, path);
-      } else {
-        return true;
-      }
-    }).forEach((c) => c.remove());
-    return reduceSingleChildCompoundPath(newPath);
+  if (path.closed) {
+    const newPath = path.unite(path, { insert: false }) as PathType;
+    if (newPath instanceof paper.CompoundPath) {
+      (newPath.children as paper.Path[]).filter((c) => {
+        if (c.segments.length > 1) {
+          return !isSameDirection(c, path);
+        } else {
+          return true;
+        }
+      }).forEach((c) => c.remove());
+      return reduceSingleChildCompoundPath(newPath);
+    }
   }
   return path;
 }
@@ -306,8 +308,15 @@ function offsetSimpleStroke(path: paper.Path, offset: number, join: StrokeJoinTy
   }
 }
 
+function getNonSelfItersectionPath(path: PathType) {
+  if (path.closed) {
+    return path.unite(path, { insert: false }) as PathType;
+  }
+  return path;
+}
+
 export function offsetPath(path: PathType, offset: number, join: StrokeJoinType, limit: number): PathType {
-  const nonSIPath = path.unite(path, { insert: false }) as PathType;
+  const nonSIPath = getNonSelfItersectionPath(path);
   let result = nonSIPath;
   if (nonSIPath instanceof paper.Path) {
     result = offsetSimpleShape(nonSIPath, offset, join, limit);
@@ -341,8 +350,8 @@ export function offsetPath(path: PathType, offset: number, join: StrokeJoinType,
 }
 
 export function offsetStroke(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number): PathType {
-  const nonSIPath = path.unite(path, { insert: false }) as PathType;
-  let result = nonSIPath as PathType;
+  const nonSIPath = getNonSelfItersectionPath(path);
+  let result = nonSIPath;
   if (nonSIPath instanceof paper.Path) {
     result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit);
   } else {

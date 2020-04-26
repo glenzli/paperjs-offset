@@ -177,17 +177,19 @@
   }
   /** Remove self intersection when offset is negative by point direction dectection. */
   function removeIntersection(path) {
-      var newPath = path.unite(path, { insert: false });
-      if (newPath instanceof paper.CompoundPath) {
-          newPath.children.filter(function (c) {
-              if (c.segments.length > 1) {
-                  return !isSameDirection(c, path);
-              }
-              else {
-                  return true;
-              }
-          }).forEach(function (c) { return c.remove(); });
-          return reduceSingleChildCompoundPath(newPath);
+      if (path.closed) {
+          var newPath = path.unite(path, { insert: false });
+          if (newPath instanceof paper.CompoundPath) {
+              newPath.children.filter(function (c) {
+                  if (c.segments.length > 1) {
+                      return !isSameDirection(c, path);
+                  }
+                  else {
+                      return true;
+                  }
+              }).forEach(function (c) { return c.remove(); });
+              return reduceSingleChildCompoundPath(newPath);
+          }
       }
       return path;
   }
@@ -292,8 +294,14 @@
           return final;
       }
   }
+  function getNonSelfItersectionPath(path) {
+      if (path.closed) {
+          return path.unite(path, { insert: false });
+      }
+      return path;
+  }
   function offsetPath(path, offset, join, limit) {
-      var nonSIPath = path.unite(path, { insert: false });
+      var nonSIPath = getNonSelfItersectionPath(path);
       var result = nonSIPath;
       if (nonSIPath instanceof paper.Path) {
           result = offsetSimpleShape(nonSIPath, offset, join, limit);
@@ -329,7 +337,7 @@
       return result;
   }
   function offsetStroke(path, offset, join, cap, limit) {
-      var nonSIPath = path.unite(path, { insert: false });
+      var nonSIPath = getNonSelfItersectionPath(path);
       var result = nonSIPath;
       if (nonSIPath instanceof paper.Path) {
           result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit);
