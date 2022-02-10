@@ -63,7 +63,7 @@ interface OffsetOptions {
 ```
 
 ## Preview
-There are some cases that the library may return weird result or failed silently, please let me noticed in the project issues. And in some cases the library will yeild an ok result than a perfect one. Currently the library should give good results for closed shapes, but may fail in some open curve cases, I'm still working on it.
+There are some cases that the library may return weird result or failed silently, please let me noticed in the project issues. And in some cases the library will yield an ok result than a perfect one. Currently the library should give good results for closed shapes, but may fail in some open curve cases, I'm still working on it.
 ![Preview](/public/preview.jpg)
 
 You can use open demo folder for simple cases demonstration.
