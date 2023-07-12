@@ -53,7 +53,6 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number, recursionTime =
       }
     }
   }
-  recursionTime = 0;
   return [segment1, segment2];
 }
 
