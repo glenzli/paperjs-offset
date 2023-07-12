@@ -3,7 +3,7 @@ import paper from 'paper';
 export type StrokeJoinType = 'miter' | 'bevel' | 'round';
 export type StrokeCapType = 'round' | 'butt';
 export type PathType = paper.Path | paper.CompoundPath;
-
+const MAX_RECURSION_TIME = 200;
 type HandleType = 'handleIn' | 'handleOut';
 
 /**
@@ -31,6 +31,7 @@ function offsetSegment(segment: paper.Segment, curve: paper.Curve, handleNormal:
  * @param curve curve to offset
  * @param offset offset value
  */
+let recursionTime = 0;
 function adaptiveOffsetCurve(curve: paper.Curve, offset: number): paper.Segment[] {
   const hNormal = (new paper.Curve(curve.segment1.handleOut!.add(curve.segment1.point), new paper.Point(0, 0),
     new paper.Point(0, 0), curve.segment2.handleIn!.add(curve.segment2.point))).getNormalAtTime(0.5).multiply(offset);
@@ -42,13 +43,15 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number): paper.Segment[
   if (offsetCurve.getIntersections(offsetCurve).length === 0) {
     const threshold = Math.min(Math.abs(offset) / 10, 1);
     const midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
-    if (Math.abs(midOffset - Math.abs(offset)) > threshold) {
+    if (Math.abs(midOffset - Math.abs(offset)) > threshold  && recursionTime < MAX_RECURSION_TIME ) {
       const subCurve = curve.divideAtTime(0.5);
       if (subCurve != null) {
+        recursionTime++;
         return [...adaptiveOffsetCurve(curve, offset), ...adaptiveOffsetCurve(subCurve, offset)];
       }
     }
   }
+  recursionTime = 0;
   return [segment1, segment2];
 }
 
