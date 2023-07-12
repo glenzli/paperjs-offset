@@ -46,10 +46,9 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number, recursionTime =
   if (offsetCurve.getIntersections(offsetCurve).length === 0) {
     const threshold = Math.min(Math.abs(offset) / 10, 1);
     const midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
-    if (Math.abs(midOffset - Math.abs(offset)) > threshold  && recursionTime < MAX_RECURSION_TIME ) {
+    if (Math.abs(midOffset - Math.abs(offset)) > threshold) {
       const subCurve = curve.divideAtTime(0.5);
       if (subCurve != null) {
-        recursionTime++;
         return [...adaptiveOffsetCurve(curve, offset, recursionTime + 1), ...adaptiveOffsetCurve(subCurve, offset, recursionTime + 1)];
       }
     }
