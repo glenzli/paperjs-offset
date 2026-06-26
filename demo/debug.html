@@ -1,12 +1,31 @@
-<html>
+<!doctype html>
+<html lang="en">
   <head>
-    <title>Demo</title>
-    <link rel="stylesheet" href="./demo.css"/>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/paper@0.12.4/dist/paper-full.min.js"></script>
-    <script type="text/javascript" src="./paperjs-offset.js"></script>
-    <script type="text/javascript" src="./debug.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>paperjs-offset debug case</title>
+    <link rel="stylesheet" href="./demo.css">
+    <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
+    <script src="./paperjs-offset.js"></script>
+    <script src="./debug.js" defer></script>
   </head>
   <body>
-    <canvas width="1200" height="768"></canvas>
+    <main class="page">
+      <header class="page-header">
+        <p class="eyebrow">paperjs-offset</p>
+        <h1>Debug case</h1>
+        <p class="intro">
+          Use this page as a small reproduction harness for path data, curve joins, and stroke cap issues.
+        </p>
+        <nav class="demo-nav" aria-label="Demo pages">
+          <a href="./index.html">Gallery</a>
+          <a href="./debug.html" aria-current="page">Debug case</a>
+        </nav>
+      </header>
+
+      <section class="debug-layout" aria-label="Debug canvas">
+        <canvas width="960" height="560" aria-label="Debug drawing canvas"></canvas>
+      </section>
+    </main>
   </body>
 </html>

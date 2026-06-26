@@ -1,74 +1,105 @@
 # Paperjs Offset
-The dicussion to implement a offset function in paper.js started years ago, yet the author have not decided to put a offset feature into the library. So I implement an extension of my own.
-<br/>As far as I know, the author has promised recently to implement a native offset functionality in near feature, the library will be closed once the native implement is published.
-<br/>This library implement both path offset and stroke offset, you may offset a path or expand a stroke like what you did in Adobe illustrator. Offset complicate path may cause unwanted self intersections, this library already take care some cases but bugs still exists. Please let me notice the false conditions in the issue pannel so I can correct it.
 
-## Usage
-For node development, use
+`paperjs-offset` adds geometry offset helpers for [Paper.js](https://paperjs.org/) paths:
+
+- `PaperOffset.offset(path, distance, options)` expands or contracts a path.
+- `PaperOffset.offsetStroke(path, distance, options)` expands a stroked path into a filled outline.
+
+Paper.js has APIs that accept an `offset` distance along a path, but its public reference still does not expose a native geometry offset API for expanding paths. This package remains a small compatibility library for projects that need Illustrator-style path offsets in Paper.js.
+
+Offsetting complex Bezier paths is inherently lossy and can still produce self-intersections, missing fragments, or imperfect joins in hard cases. If you report a bug, include the source `pathData`, the offset distance, and the options used.
+
+## Install
+
 ```sh
 npm install paperjs-offset
 ```
-And then, in you project:
+
+## Usage
+
 ```javascript
-import paper from 'paper'
-import { PaperOffset } from 'paperjs-offset'
+import paper from 'paper';
+import { PaperOffset } from 'paperjs-offset';
 
-// call offset
-PaperOffset.offset(path, offset, options)
+const path = new paper.Path.Rectangle({
+  point: [20, 20],
+  size: [120, 80]
+});
 
-// call offset stroke
-PaperOffset.offsetStroke(path, offset, options)
+const expanded = PaperOffset.offset(path, 12, { join: 'round' });
+const strokeShape = PaperOffset.offsetStroke(path, 8, { cap: 'round' });
 ```
 
-You may still use the old way to extend paperjs module, which is **deprecated** and will be removed in future version.
+For browser usage, include Paper.js first and then the generated browser bundle:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
+<script src="./paperjs-offset.js"></script>
+```
+
+The browser bundle exposes `window.PaperOffset`:
+
+```javascript
+const expanded = PaperOffset.offset(path, 10, { join: 'round' });
+const outline = PaperOffset.offsetStroke(path, 10, { cap: 'round' });
+```
+
+The old prototype-extension API still works, but it is deprecated and no longer ships TypeScript declarations for `paper.Path` or `paper.CompoundPath`:
+
 ```typescript
-import ExtendPaperJs from 'paperjs-offset'
-// extend paper.Path, paper.CompoundPath with offset, offsetStroke method
+import paper from 'paper';
+import ExtendPaperJs from 'paperjs-offset';
+
 ExtendPaperJs(paper);
 
-// Warning: The library no longer include extended definitions for paper.Path & paper.CompoundPath, you may need your own declarations to use extension in typescript.
 (path as any).offset(10);
+(path as any).offsetStroke(10);
 ```
 
-Or for web development, include the **paperjs-offset.js** or **paperjs-offset.min.js** in demo folder.
-<br/>The library now exposes a global variable **PaperOffset**, again, the extension of **paper.Path** and **paper.CompoundPath** with offset/offsetStroke functions is still available, but no longer recommended.
-```javascript
-let path = new paper.Path(/* params */)
+## API
 
-PaperOffset.offset(path, 10, { join: 'round' })
-PaperOffset.offsetStroke(path, 10, { cap: 'round' })
-
-// deprecated
-path.offset(10, { join: 'round' })
-// deprecated
-path.offsetStroke(10, { cap: 'round' })
-```
-
-Sample references:
 ```typescript
-offset(path: paper.Path | paper.CompoundPath, offset: number, options?: OffsetOptions): paper.Path | paper.CompoundPath
+offset(
+  path: paper.Path | paper.CompoundPath,
+  distance: number,
+  options?: OffsetOptions
+): paper.Path | paper.CompoundPath;
 
-offsetStroke(path: paper.Path | paper.CompoundPath, offset: number, options?: OffsetOptions): paper.Path | paper.CompoundPath
+offsetStroke(
+  path: paper.Path | paper.CompoundPath,
+  distance: number,
+  options?: OffsetOptions
+): paper.Path | paper.CompoundPath;
 
 interface OffsetOptions {
-  // the join style of offset path, default is 'miter'
+  // Offset join style. Default: 'miter'.
   join?: 'miter' | 'bevel' | 'round';
-  // the cap style of offset (only validate for offsetStroke), default is 'butt', ('square' will be supported in future)
+  // Stroke terminal style for offsetStroke. Default: 'butt'.
   cap?: 'butt' | 'round';
-  // the limit for miter style (refer to the miterLimit definition in paper)
+  // Miter limit. Default: 10.
   limit?: number;
-  // whether the result should be insert into the canvas, default is true
+  // Insert the result into the current project. Default: true.
   insert?: boolean;
 }
 ```
 
-## Preview
-There are some cases that the library may return weird result or failed silently, please let me noticed in the project issues. And in some cases the library will yeild an ok result than a perfect one. Currently the library should give good results for closed shapes, but may fail in some open curve cases, I'm still working on it.
+## Demos
+
+The demo folder is structured around two entry points:
+
+- [`demo/index.html`](demo/index.html) is a visual gallery with closed-path offsets, join styles, compound-shape cleanup, stroke caps, and a curve stress case.
+- [`demo/debug.html`](demo/debug.html) is a small reproduction harness for changing `pathData`, offset distances, and options while debugging issues.
+
+Open either file directly in a browser. The demos load `demo/paperjs-offset.js`, which is generated by the build:
+
+```sh
+npm run build
+```
+
 ![Preview](/public/preview.jpg)
 
-You can use open demo folder for simple cases demonstration.
-
 ## Development
+
 ```sh
 npm ci
 npm run lint
@@ -76,12 +107,15 @@ npm test
 ```
 
 ## Release
+
 Run the local release check before publishing:
+
 ```sh
 npm run release:check
 ```
 
 To publish a new version:
+
 ```sh
 npm version patch
 npm run release:publish
@@ -91,4 +125,5 @@ git push origin master --follow-tags
 The GitHub default branch is currently `master`. GitHub's unprotected-branch warning is independent of the branch name: add a repository ruleset for `master` or `main` that blocks deletion and force pushes.
 
 ## License
+
 Distributed under the MIT license. See [LICENSE](https://github.com/glenzli/paperjs-offset/blob/master/LICENSE) for detail.

@@ -1,12 +1,75 @@
-<html>
+<!doctype html>
+<html lang="en">
   <head>
-    <title>Demo</title>
-    <link rel="stylesheet" href="./demo.css"/>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/paper@0.12.4/dist/paper-full.min.js"></script>
-    <script type="text/javascript" src="./paperjs-offset.js"></script>
-    <script type="text/javascript" src="./demo.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>paperjs-offset demos</title>
+    <link rel="stylesheet" href="./demo.css">
+    <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
+    <script src="./paperjs-offset.js"></script>
+    <script src="./demo.js" defer></script>
   </head>
   <body>
-    <canvas width="1200" height="768"></canvas>
+    <main class="page">
+      <header class="page-header">
+        <p class="eyebrow">paperjs-offset</p>
+        <h1>Offset and expanded stroke examples for Paper.js paths</h1>
+        <p class="intro">
+          These examples run against the browser bundle in this repository. Rebuild with
+          <code>npm run build</code> after changing the library code.
+        </p>
+        <nav class="demo-nav" aria-label="Demo pages">
+          <a href="./index.html" aria-current="page">Gallery</a>
+          <a href="./debug.html">Debug case</a>
+        </nav>
+      </header>
+
+      <section class="demo-grid" aria-label="Offset examples">
+        <article class="demo-card" data-demo-card>
+          <div class="demo-copy">
+            <h2>Closed path offset</h2>
+            <p>Positive offsets expand the source path; negative offsets contract it. The source stays visible on top.</p>
+          </div>
+          <canvas data-demo="closed-offset" width="560" height="340" aria-label="Closed path offset demo"></canvas>
+          <pre><code></code></pre>
+        </article>
+
+        <article class="demo-card" data-demo-card>
+          <div class="demo-copy">
+            <h2>Join styles</h2>
+            <p>Use <code>miter</code>, <code>bevel</code>, or <code>round</code> joins when connecting adjacent offset curves.</p>
+          </div>
+          <canvas data-demo="join-styles" width="560" height="340" aria-label="Join styles demo"></canvas>
+          <pre><code></code></pre>
+        </article>
+
+        <article class="demo-card" data-demo-card>
+          <div class="demo-copy">
+            <h2>Compound shape cleanup</h2>
+            <p>Boolean-normalized shapes can be offset repeatedly, but aggressive negative offsets may still expose edge cases.</p>
+          </div>
+          <canvas data-demo="compound-shape" width="560" height="340" aria-label="Compound shape offset demo"></canvas>
+          <pre><code></code></pre>
+        </article>
+
+        <article class="demo-card" data-demo-card>
+          <div class="demo-copy">
+            <h2>Stroke expansion</h2>
+            <p><code>offsetStroke</code> expands open paths into filled outlines, with butt and round caps for terminals.</p>
+          </div>
+          <canvas data-demo="stroke-expansion" width="560" height="340" aria-label="Stroke expansion demo"></canvas>
+          <pre><code></code></pre>
+        </article>
+
+        <article class="demo-card" data-demo-card>
+          <div class="demo-copy">
+            <h2>Curve stress case</h2>
+            <p>A compact reproduction area for the kind of self-intersection and curve-fitting cases that usually become issues.</p>
+          </div>
+          <canvas data-demo="curve-stress" width="560" height="340" aria-label="Curve stress case demo"></canvas>
+          <pre><code></code></pre>
+        </article>
+      </section>
+    </main>
   </body>
 </html>
