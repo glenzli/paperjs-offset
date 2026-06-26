@@ -32,12 +32,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/luz-alphacode/paperjs-offset.git"
+    "url": "git+https://github.com/glenzli/paperjs-offset.git"
   },
   "bugs": {
-    "url": "https://github.com/luz-alphacode/paperjs-offset/issues"
+    "url": "https://github.com/glenzli/paperjs-offset/issues"
   },
-  "homepage": "https://github.com/luz-alphacode/paperjs-offset#readme",
+  "homepage": "https://github.com/glenzli/paperjs-offset#readme",
   "keywords": [
     "paperjs",
     "offset"
