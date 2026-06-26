@@ -12,6 +12,22 @@ export interface OffsetOptions {
   algorithm?: OffsetAlgorithm;
 }
 
+interface ResolvedOffsetOptions {
+  join: StrokeJoinType;
+  cap: StrokeCapType;
+  limit: number;
+  algorithm: OffsetAlgorithm;
+}
+
+function resolveOptions(options?: OffsetOptions): ResolvedOffsetOptions {
+  return {
+    join: options?.join ?? 'miter',
+    cap: options?.cap ?? 'butt',
+    limit: options?.limit ?? 10,
+    algorithm: options?.algorithm ?? 'auto',
+  };
+}
+
 function insertResult(source: PathType, result: PathType, options?: OffsetOptions) {
   if (!options || options.insert !== false) {
     (source.parent || paper.project.activeLayer).addChild(result);
@@ -19,25 +35,27 @@ function insertResult(source: PathType, result: PathType, options?: OffsetOption
 }
 
 export function offset(path: PathType, distance: number, options?: OffsetOptions): PathType {
+  const resolvedOptions = resolveOptions(options);
   const newPath = createOffsetPath(
     path,
     distance,
-    options && options.join || 'miter',
-    options && options.limit || 10,
-    options && options.algorithm || 'auto'
+    resolvedOptions.join,
+    resolvedOptions.limit,
+    resolvedOptions.algorithm
   );
   insertResult(path, newPath, options);
   return newPath;
 }
 
 export function offsetStroke(path: PathType, distance: number, options?: OffsetOptions): PathType {
+  const resolvedOptions = resolveOptions(options);
   const newPath = createOffsetStroke(
     path,
     distance,
-    options && options.join || 'miter',
-    options && options.cap || 'butt',
-    options && options.limit || 10,
-    options && options.algorithm || 'auto'
+    resolvedOptions.join,
+    resolvedOptions.cap,
+    resolvedOptions.limit,
+    resolvedOptions.algorithm
   );
   insertResult(path, newPath, options);
   return newPath;
@@ -65,20 +83,20 @@ export class PaperOffset {
  * @deprecated EXTEND existing paper module is not recommend anymore
  */
 export default function ExtendPaperJs(paperNs: any) {
-  paperNs.Path.prototype.offset = function(offset: number, options?: OffsetOptions) {
-    return PaperOffset.offset(this, offset, options);
+  paperNs.Path.prototype.offset = function(distance: number, options?: OffsetOptions) {
+    return offset(this, distance, options);
   };
 
-  paperNs.Path.prototype.offsetStroke = function(offset: number, options?: OffsetOptions) {
-    return PaperOffset.offsetStroke(this, offset, options);
+  paperNs.Path.prototype.offsetStroke = function(distance: number, options?: OffsetOptions) {
+    return offsetStroke(this, distance, options);
   };
 
-  paperNs.CompoundPath.prototype.offset = function(offset: number, options?: OffsetOptions) {
-    return PaperOffset.offset(this, offset, options);
+  paperNs.CompoundPath.prototype.offset = function(distance: number, options?: OffsetOptions) {
+    return offset(this, distance, options);
   };
 
-  paperNs.CompoundPath.prototype.offsetStroke = function(offset: number, options?: OffsetOptions) {
-    return PaperOffset.offsetStroke(this, offset, options);
+  paperNs.CompoundPath.prototype.offsetStroke = function(distance: number, options?: OffsetOptions) {
+    return offsetStroke(this, distance, options);
   };
 }
 

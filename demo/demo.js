@@ -68,8 +68,8 @@
         "  center: [0, 0], points: 8, radius1: 76, radius2: 44",
         "});",
         "",
-        "PaperOffset.offset(source, 18, { join: 'round' });",
-        "PaperOffset.offset(source, -18, { join: 'round' });"
+        "paperjsOffset.offset(source, 18, { join: 'round' });",
+        "paperjsOffset.offset(source, -18, { join: 'round' });"
       ].join('\n'),
       draw: function() {
         drawAxis();
@@ -82,10 +82,10 @@
         });
         setStyle(source, sourceStyle);
 
-        var expanded = PaperOffset.offset(source, 18, { join: 'round' });
+        var expanded = paperjsOffset.offset(source, 18, { join: 'round' });
         setStyle(expanded, offsetStyle);
 
-        var contracted = PaperOffset.offset(source, -18, { join: 'round' });
+        var contracted = paperjsOffset.offset(source, -18, { join: 'round' });
         setStyle(contracted, innerStyle);
 
         source.bringToFront();
@@ -96,9 +96,9 @@
 
     'join-styles': {
       code: [
-        "PaperOffset.offset(path, 22, { join: 'miter', limit: 3 });",
-        "PaperOffset.offset(path, 22, { join: 'bevel' });",
-        "PaperOffset.offset(path, 22, { join: 'round' });"
+        "paperjsOffset.offset(path, 22, { join: 'miter', limit: 3 });",
+        "paperjsOffset.offset(path, 22, { join: 'bevel' });",
+        "paperjsOffset.offset(path, 22, { join: 'round' });"
       ].join('\n'),
       draw: function() {
         var joins = ['miter', 'bevel', 'round'];
@@ -118,7 +118,7 @@
           });
           setStyle(source, sourceStyle);
 
-          var expanded = PaperOffset.offset(source, 22, { join: join, limit: 3 });
+          var expanded = paperjsOffset.offset(source, 22, { join: join, limit: 3 });
           setStyle(expanded, offsetStyle);
           source.bringToFront();
           label(join, x, 112);
@@ -130,9 +130,9 @@
       code: [
         "const source = circleA.unite(circleB).unite(circleC);",
         "",
-        "PaperOffset.offset(source, 16, { join: 'round' });",
-        "const inner = PaperOffset.offset(source, -14, { join: 'round' });",
-        "PaperOffset.offset(inner, -10, { join: 'round' });"
+        "paperjsOffset.offset(source, 16, { join: 'round' });",
+        "const inner = paperjsOffset.offset(source, -14, { join: 'round' });",
+        "paperjsOffset.offset(inner, -10, { join: 'round' });"
       ].join('\n'),
       draw: function() {
         var circles = [
@@ -143,13 +143,13 @@
         var source = makeUnion(circles);
         setStyle(source, sourceStyle);
 
-        var expanded = PaperOffset.offset(source, 16, { join: 'round' });
+        var expanded = paperjsOffset.offset(source, 16, { join: 'round' });
         setStyle(expanded, offsetStyle);
 
-        var inner = PaperOffset.offset(source, -14, { join: 'round' });
+        var inner = paperjsOffset.offset(source, -14, { join: 'round' });
         setStyle(inner, innerStyle);
 
-        var deeper = PaperOffset.offset(inner, -10, { join: 'round' });
+        var deeper = paperjsOffset.offset(inner, -10, { join: 'round' });
         setStyle(deeper, {
           fillColor: 'rgba(37, 99, 235, 0.14)',
           strokeColor: '#2563eb',
@@ -163,12 +163,12 @@
 
     'stroke-expansion': {
       code: [
-        "PaperOffset.offsetStroke(openPath, 18, {",
+        "paperjsOffset.offsetStroke(openPath, 18, {",
         "  join: 'round',",
         "  cap: 'butt'",
         "});",
         "",
-        "PaperOffset.offsetStroke(openPath, 18, {",
+        "paperjsOffset.offsetStroke(openPath, 18, {",
         "  join: 'round',",
         "  cap: 'round'",
         "});"
@@ -181,7 +181,7 @@
         });
         buttPath.smooth({ type: 'continuous' });
 
-        var butt = PaperOffset.offsetStroke(buttPath, 18, { join: 'round', cap: 'butt' });
+        var butt = paperjsOffset.offsetStroke(buttPath, 18, { join: 'round', cap: 'butt' });
         setStyle(butt, offsetStyle);
         buttPath.bringToFront();
         label('butt cap', -128, 18);
@@ -190,7 +190,7 @@
         roundPath.position = [126, -58];
         roundPath.strokeColor = '#2563eb';
 
-        var round = PaperOffset.offsetStroke(roundPath, 18, { join: 'round', cap: 'round' });
+        var round = paperjsOffset.offsetStroke(roundPath, 18, { join: 'round', cap: 'round' });
         setStyle(round, {
           fillColor: 'rgba(37, 99, 235, 0.2)',
           strokeColor: '#2563eb',
@@ -206,7 +206,7 @@
           strokeColor: '#b45309',
           strokeWidth: 4
         });
-        var closedStroke = PaperOffset.offsetStroke(closed, 12, { join: 'round' });
+        var closedStroke = paperjsOffset.offsetStroke(closed, 12, { join: 'round' });
         setStyle(closedStroke, innerStyle);
         closed.bringToFront();
         label('closed stroke expansion', 0, 135);
@@ -217,7 +217,7 @@
       code: [
         "const issuePath = new paper.Path({ pathData });",
         "",
-        "PaperOffset.offset(issuePath, -12, {",
+        "paperjsOffset.offset(issuePath, -12, {",
         "  join: 'round',",
         "  limit: 4",
         "});"
@@ -235,7 +235,7 @@
           strokeWidth: 2
         });
 
-        var offset = PaperOffset.offset(source, -12, { join: 'round', limit: 4 });
+        var offset = paperjsOffset.offset(source, -12, { join: 'round', limit: 4 });
         setStyle(offset, offsetStyle);
         source.bringToFront();
         label('known hard shape: inspect for loops and missing fragments', 0, 132);

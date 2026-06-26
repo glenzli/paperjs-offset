@@ -519,14 +519,14 @@
         }
         return bestResult;
     }
-    function getNonSelfItersectionPath(path) {
+    function getNonSelfIntersectionPath(path) {
         if (path.closed) {
             return path.unite(path, { insert: false });
         }
         return path;
     }
     function offsetPathWithStrategy(path, offset, join, limit, strategy) {
-        var nonSIPath = getNonSelfItersectionPath(path);
+        var nonSIPath = getNonSelfIntersectionPath(path);
         var result = nonSIPath;
         if (nonSIPath instanceof paper.Path) {
             result = offsetSimpleShape(nonSIPath, offset, join, limit, strategy);
@@ -537,17 +537,17 @@
                     if (!isSameDirection(c, path)) {
                         c.reverse();
                     }
-                    var offseted = offsetSimpleShape(c, offset, join, limit, strategy);
-                    offseted = normalize(offseted);
-                    if (offseted.clockwise !== c.clockwise) {
-                        offseted.reverse();
+                    var offsetPath_1 = offsetSimpleShape(c, offset, join, limit, strategy);
+                    offsetPath_1 = normalize(offsetPath_1);
+                    if (offsetPath_1.clockwise !== c.clockwise) {
+                        offsetPath_1.reverse();
                     }
-                    if (offseted instanceof paper.CompoundPath) {
-                        offseted.applyMatrix = true;
-                        return offseted.children;
+                    if (offsetPath_1 instanceof paper.CompoundPath) {
+                        offsetPath_1.applyMatrix = true;
+                        return offsetPath_1.children;
                     }
                     else {
-                        return offseted;
+                        return offsetPath_1;
                     }
                 }
                 else {
@@ -570,7 +570,7 @@
         return offsetPathWithStrategy(path, offset, join, limit, getStrategy(algorithm));
     }
     function offsetStrokeWithStrategy(path, offset, join, cap, limit, strategy) {
-        var nonSIPath = getNonSelfItersectionPath(path);
+        var nonSIPath = getNonSelfIntersectionPath(path);
         var result = nonSIPath;
         if (nonSIPath instanceof paper.Path) {
             result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit, strategy);
@@ -596,53 +596,50 @@
         return offsetStrokeWithStrategy(path, offset, join, cap, limit, getStrategy(algorithm));
     }
 
+    function resolveOptions(options) {
+        var _a, _b, _c, _d;
+        return {
+            join: (_a = options === null || options === void 0 ? void 0 : options.join) !== null && _a !== void 0 ? _a : 'miter',
+            cap: (_b = options === null || options === void 0 ? void 0 : options.cap) !== null && _b !== void 0 ? _b : 'butt',
+            limit: (_c = options === null || options === void 0 ? void 0 : options.limit) !== null && _c !== void 0 ? _c : 10,
+            algorithm: (_d = options === null || options === void 0 ? void 0 : options.algorithm) !== null && _d !== void 0 ? _d : 'auto',
+        };
+    }
     function insertResult(source, result, options) {
         if (!options || options.insert !== false) {
             (source.parent || paper.project.activeLayer).addChild(result);
         }
     }
     function offset(path, distance, options) {
-        var newPath = offsetPath(path, distance, options && options.join || 'miter', options && options.limit || 10, options && options.algorithm || 'auto');
+        var resolvedOptions = resolveOptions(options);
+        var newPath = offsetPath(path, distance, resolvedOptions.join, resolvedOptions.limit, resolvedOptions.algorithm);
         insertResult(path, newPath, options);
         return newPath;
     }
     function offsetStroke(path, distance, options) {
-        var newPath = offsetStroke$1(path, distance, options && options.join || 'miter', options && options.cap || 'butt', options && options.limit || 10, options && options.algorithm || 'auto');
+        var resolvedOptions = resolveOptions(options);
+        var newPath = offsetStroke$1(path, distance, resolvedOptions.join, resolvedOptions.cap, resolvedOptions.limit, resolvedOptions.algorithm);
         insertResult(path, newPath, options);
         return newPath;
     }
     function analyze(source, result, distance, options) {
         return analyzeOffsetQuality(source, result, distance, options || {});
     }
-    var PaperOffset = /** @class */ (function () {
-        function PaperOffset() {
-        }
-        PaperOffset.offset = function (path, distance, options) {
-            return offset(path, distance, options);
-        };
-        PaperOffset.offsetStroke = function (path, distance, options) {
-            return offsetStroke(path, distance, options);
-        };
-        PaperOffset.analyze = function (source, result, distance, options) {
-            return analyze(source, result, distance, options);
-        };
-        return PaperOffset;
-    }());
     /**
      * @deprecated EXTEND existing paper module is not recommend anymore
      */
     function ExtendPaperJs(paperNs) {
-        paperNs.Path.prototype.offset = function (offset, options) {
-            return PaperOffset.offset(this, offset, options);
+        paperNs.Path.prototype.offset = function (distance, options) {
+            return offset(this, distance, options);
         };
-        paperNs.Path.prototype.offsetStroke = function (offset, options) {
-            return PaperOffset.offsetStroke(this, offset, options);
+        paperNs.Path.prototype.offsetStroke = function (distance, options) {
+            return offsetStroke(this, distance, options);
         };
-        paperNs.CompoundPath.prototype.offset = function (offset, options) {
-            return PaperOffset.offset(this, offset, options);
+        paperNs.CompoundPath.prototype.offset = function (distance, options) {
+            return offset(this, distance, options);
         };
-        paperNs.CompoundPath.prototype.offsetStroke = function (offset, options) {
-            return PaperOffset.offsetStroke(this, offset, options);
+        paperNs.CompoundPath.prototype.offsetStroke = function (distance, options) {
+            return offsetStroke(this, distance, options);
         };
     }
 

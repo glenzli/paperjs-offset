@@ -79,7 +79,7 @@ paper.setup(new paper.Size(1200, 900));
     strokeColor: 'black',
     insert: false,
   });
-  const result = PaperOffset.offsetStroke(path, 5, {
+  const result = offsetStroke(path, 5, {
     insert: false,
     cap: 'round',
   });
@@ -97,20 +97,20 @@ paper.setup(new paper.Size(1200, 900));
   ]);
   path.translate(new paper.Point(-100, -100));
 
-  const legacy = PaperOffset.offset(path, 24, {
+  const legacy = offset(path, 24, {
     insert: false,
     algorithm: 'legacy',
   });
-  const robust = PaperOffset.offset(path, 24, {
+  const robust = offset(path, 24, {
     insert: false,
     algorithm: 'robust',
   });
-  const result = PaperOffset.offset(path, 24, {
+  const result = offset(path, 24, {
     insert: false,
     algorithm: 'auto',
   });
-  const legacyQuality = PaperOffset.analyze(path, legacy, 24);
-  const resultQuality = PaperOffset.analyze(path, result, 24);
+  const legacyQuality = analyze(path, legacy, 24);
+  const resultQuality = analyze(path, result, 24);
 
   assert.strictEqual(result.className, 'Path');
   assert.strictEqual(result.closed, true);

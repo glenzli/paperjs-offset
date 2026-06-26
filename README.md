@@ -1,13 +1,17 @@
-# Paperjs Offset
+# paperjs-offset
 
-`paperjs-offset` adds geometry offset helpers for [Paper.js](https://paperjs.org/) paths:
+Offset geometry helpers for [Paper.js](https://paperjs.org/).
 
-- `offset(path, distance, options)` expands or contracts a path.
-- `offsetStroke(path, distance, options)` expands a stroked path into a filled outline.
+[![paperjs-offset demo preview](public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
 
-Paper.js has APIs that accept an `offset` distance along a path, but its public reference still does not expose a native geometry offset API for expanding paths. This package remains a small compatibility library for projects that need Illustrator-style path offsets in Paper.js.
+[Open the live demo](https://glenzli.github.io/paperjs-offset/) · [Report an issue](https://github.com/glenzli/paperjs-offset/issues)
 
-Offsetting complex Bezier paths is inherently lossy and can still produce self-intersections, missing fragments, or imperfect joins in hard cases. If you report a bug, include the source `pathData`, the offset distance, and the options used.
+This package gives Paper.js projects two operations that are useful in vector editors:
+
+- `offset(path, distance, options)` expands or contracts a closed path.
+- `offsetStroke(path, distance, options)` turns a stroked path into a filled outline.
+
+Path offsetting is a geometric approximation problem, especially around Bezier joins, self-intersections, and aggressive negative offsets. The default algorithm tries several strategies and chooses the best-scored result, but difficult shapes can still expose edge cases. Bug reports are most useful when they include `pathData`, distance, options, and the expected shape.
 
 ## Install
 
@@ -15,152 +19,176 @@ Offsetting complex Bezier paths is inherently lossy and can still produce self-i
 npm install paper paperjs-offset
 ```
 
-## Usage
+`paper` is a peer dependency. The package ships CommonJS, ESM, TypeScript declarations, and browser bundles.
 
-```javascript
+## Quick Start
+
+```ts
 import paper from 'paper';
 import { offset, offsetStroke } from 'paperjs-offset';
 
-const path = new paper.Path.Rectangle({
-  point: [20, 20],
-  size: [120, 80]
+paper.setup(new paper.Size(400, 300));
+
+const path = new paper.Path.Star({
+  center: [160, 120],
+  points: 8,
+  radius1: 70,
+  radius2: 36,
+  insert: false
 });
 
-const expanded = offset(path, 12, { join: 'round' });
-const strokeShape = offsetStroke(path, 8, { cap: 'round' });
+const expanded = offset(path, 14, {
+  join: 'round',
+  insert: false
+});
+
+const outline = offsetStroke(path, 8, {
+  join: 'round',
+  cap: 'round',
+  insert: false
+});
 ```
 
-The default `algorithm: 'auto'` runs multiple strategies and returns the result with the best quality score. You can force a strategy when a project needs stable legacy behavior or a specific tradeoff:
-
-```javascript
-offset(path, 12, { algorithm: 'robust' });
-offset(path, 12, { algorithm: 'legacy' });
-```
-
-For browser usage, include Paper.js first and then the generated browser bundle:
+For browser pages, include Paper.js first and then the browser build:
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
-<script src="./paperjs-offset.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@1/dist/paperjs-offset.min.js"></script>
 ```
 
-The browser bundle exposes `window.PaperOffset` and `window.paperjsOffset`:
-
-```javascript
-const expanded = PaperOffset.offset(path, 10, { join: 'round' });
-const outline = PaperOffset.offsetStroke(path, 10, { cap: 'round' });
-```
-
-`PaperOffset` is still exported for older code that prefers the static wrapper:
-
-```javascript
-import { PaperOffset } from 'paperjs-offset';
-
-PaperOffset.offset(path, 10);
-```
-
-The old prototype-extension API still works, but it is deprecated and no longer ships TypeScript declarations for `paper.Path` or `paper.CompoundPath`:
-
-```typescript
-import paper from 'paper';
-import ExtendPaperJs from 'paperjs-offset';
-
-ExtendPaperJs(paper);
-
-(path as any).offset(10);
-(path as any).offsetStroke(10);
+```js
+const expanded = paperjsOffset.offset(path, 12, { join: 'round' });
 ```
 
 ## API
 
-```typescript
-offset(
+```ts
+import {
+  analyze,
+  offset,
+  offsetStroke,
+  type OffsetOptions,
+  type OffsetQuality
+} from 'paperjs-offset';
+```
+
+```ts
+function offset(
   path: paper.Path | paper.CompoundPath,
   distance: number,
   options?: OffsetOptions
 ): paper.Path | paper.CompoundPath;
 
-offsetStroke(
+function offsetStroke(
   path: paper.Path | paper.CompoundPath,
   distance: number,
   options?: OffsetOptions
 ): paper.Path | paper.CompoundPath;
 
-interface OffsetOptions {
-  // Offset join style. Default: 'miter'.
-  join?: 'miter' | 'bevel' | 'round';
-  // Stroke terminal style for offsetStroke. Default: 'butt'.
-  cap?: 'butt' | 'round';
-  // Miter limit. Default: 10.
-  limit?: number;
-  // Offset strategy. Default: 'auto'.
-  algorithm?: 'auto' | 'legacy' | 'split' | 'robust';
-  // Insert the result into the current project. Default: true.
-  insert?: boolean;
-}
+function analyze(
+  source: paper.Path | paper.CompoundPath,
+  result: paper.Path | paper.CompoundPath,
+  distance: number,
+  options?: { stroke?: boolean }
+): OffsetQuality;
 ```
 
-You can inspect a generated result with the same quality scorer used by `algorithm: 'auto'`:
+`OffsetOptions`:
 
-```javascript
-import { analyze, offset } from 'paperjs-offset';
+| Option | Values | Default | Notes |
+| --- | --- | --- | --- |
+| `join` | `'miter'`, `'bevel'`, `'round'` | `'miter'` | Join style for adjacent offset curves. |
+| `cap` | `'butt'`, `'round'` | `'butt'` | Terminal style for `offsetStroke`. |
+| `limit` | `number` | `10` | Miter limit. |
+| `algorithm` | `'auto'`, `'robust'`, `'split'`, `'legacy'` | `'auto'` | Offset strategy. |
+| `insert` | `boolean` | `true` | Insert the generated result into the active Paper.js project. |
 
-const result = offset(path, 12, { insert: false });
-const quality = analyze(path, result, 12);
+The static `PaperOffset` export and the default prototype-extension helper still exist for older code, but new code should prefer the named functions above.
+
+## Algorithms
+
+`algorithm: 'auto'` is the default. It runs the available strategies, scores each result with `analyze`, and returns the lowest-scoring result.
+
+| Strategy | Use case |
+| --- | --- |
+| `auto` | Best default for application code and demos. |
+| `robust` | Extra cleanup for concave joins and self-intersecting stroke outlines. |
+| `split` | Splits self-intersecting curves with less cleanup than `robust`. |
+| `legacy` | Closest behavior to older releases. Useful when preserving historical output matters. |
+
+You can inspect output quality directly:
+
+```ts
+const result = offset(path, -12, {
+  algorithm: 'auto',
+  insert: false
+});
+
+const quality = analyze(path, result, -12);
+
+console.log(quality.score, quality.warnings);
 ```
+
+`quality.warnings` can report problems such as self-intersections, unexpected area changes, containment errors, or distance collapse. The stress tests use the same scorer.
 
 ## Demos
 
-The demo folder is structured around two entry points:
+The repository is prepared for GitHub Pages at:
 
-- [`demo/index.html`](demo/index.html) is a visual gallery with closed-path offsets, join styles, compound-shape cleanup, stroke caps, and a curve stress case.
-- [`demo/stress.html`](demo/stress.html) renders the deterministic stress corpus used by `npm run test:stress`.
-- [`demo/debug.html`](demo/debug.html) is a small reproduction harness for changing `pathData`, offset distances, and options while debugging issues.
+https://glenzli.github.io/paperjs-offset/
 
-Open either file directly in a browser, or serve the demo folder locally:
+Enable it in the repository settings with:
+
+- Source: deploy from a branch
+- Branch: `master`
+- Folder: `/(root)`
+
+The root `index.html` redirects to `demo/index.html`. The demo folder contains:
+
+- `demo/index.html`: curated visual examples.
+- `demo/stress.html`: the deterministic stress corpus used by tests.
+- `demo/debug.html`: a small page for reproducing individual path cases.
+
+Run the demos locally:
 
 ```sh
 npm run demo:serve
 ```
 
-The build writes browser bundles to `dist/` first and then copies them into `demo/`, so the demo always exercises the same generated artifact that is published.
-
-![Preview](/public/preview.jpg)
+`npm run build` writes browser bundles to `dist/` and then syncs the same generated files into `demo/`, so local demos and published artifacts exercise the same build.
 
 ## Development
 
 ```sh
 npm ci
 npm run lint
-npm run build
-npm run build:ts
-npm run build:bundles
 npm test
 npm run test:stress
 ```
 
-`npm test` rebuilds the package, runs the smoke tests, and then runs the deterministic stress corpus used by the stress gallery.
+Useful build commands:
+
+```sh
+npm run build
+npm run build:ts
+npm run build:bundles
+```
+
+`npm test` rebuilds the package, runs smoke tests, and then runs the generated stress corpus.
 
 ## Release
 
-Run the local release check before publishing:
-
-```sh
-npm run release:check
-```
-
-To publish a new version:
+Publishing is intentionally local. There is no GitHub Action that publishes to npm.
 
 ```sh
 npm version patch
+npm run release:check
 npm run release:publish
 git push origin master --follow-tags
 ```
 
-`release:publish` delegates to `npm publish`; the `prepublishOnly` lifecycle runs `release:check`, so direct publishes and the local release command share the same guardrails.
-
-The GitHub default branch is currently `master`. GitHub's unprotected-branch warning is independent of the branch name: add a repository ruleset for `master` or `main` that blocks deletion and force pushes.
+`release:check` runs typecheck, tests, `npm audit`, and `npm pack --dry-run`. `release:publish` delegates to `npm publish`; `prepublishOnly` runs the same release check for direct publishes.
 
 ## License
 
-Distributed under the MIT license. See [LICENSE](https://github.com/glenzli/paperjs-offset/blob/master/LICENSE) for detail.
+MIT. See [LICENSE](LICENSE).

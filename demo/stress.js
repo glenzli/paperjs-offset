@@ -62,9 +62,9 @@
         insert: false
       });
       var result = testCase.operation === 'stroke'
-        ? PaperOffset.offsetStroke(source, testCase.distance, options)
-        : PaperOffset.offset(source, testCase.distance, options);
-      var quality = PaperOffset.analyze(source, result, testCase.distance, {
+        ? paperjsOffset.offsetStroke(source, testCase.distance, options)
+        : paperjsOffset.offset(source, testCase.distance, options);
+      var quality = paperjsOffset.analyze(source, result, testCase.distance, {
         stroke: testCase.operation === 'stroke'
       });
 

@@ -1,6 +1,6 @@
 const assert = require('assert');
 const paper = require('paper');
-const { PaperOffset } = require('../dist/index.umd.js');
+const { analyze, offset, offsetStroke } = require('../dist/index.umd.js');
 const createStressCases = require('../demo/stress-cases.js');
 
 const algorithms = ['legacy', 'split', 'robust', 'auto'];
@@ -29,9 +29,9 @@ function runCase(testCase, algorithm) {
   const source = testCase.draw();
   const options = cloneOptions(testCase.options, algorithm);
   const result = testCase.operation === 'stroke'
-    ? PaperOffset.offsetStroke(source, testCase.distance, options)
-    : PaperOffset.offset(source, testCase.distance, options);
-  const quality = PaperOffset.analyze(source, result, testCase.distance, {
+    ? offsetStroke(source, testCase.distance, options)
+    : offset(source, testCase.distance, options);
+  const quality = analyze(source, result, testCase.distance, {
     stroke: testCase.operation === 'stroke',
   });
 
