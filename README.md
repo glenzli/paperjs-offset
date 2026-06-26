@@ -145,9 +145,10 @@ Enable it in the repository settings with:
 
 The root `index.html` redirects to `demo/index.html`. The demo folder contains:
 
-- `demo/index.html`: curated visual examples.
+- `demo/index.html`: a teaching guide for offset direction, joins, stroke outlines, compound paths, strategies, and quality scoring.
 - `demo/stress.html`: the deterministic stress corpus used by tests.
-- `demo/debug.html`: a small page for reproducing individual path cases.
+
+Single-case reproductions are best kept in issues with `pathData`, distance, and options instead of as permanent demo pages.
 
 Run the demos locally:
 

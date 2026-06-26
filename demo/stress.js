@@ -87,7 +87,7 @@
     paper.view.update();
   }
 
-  function renderStressGallery() {
+  function renderStressCorpus() {
     var container = document.querySelector('.stress-grid');
     var summary = document.querySelector('.stress-summary');
     var cases = createStressCases(paper);
@@ -105,5 +105,5 @@
     summary.textContent = cases.length + ' cases / ' + counts.ok + ' ok / ' + counts.warn + ' warnings / ' + counts.fail + ' failed';
   }
 
-  window.addEventListener('DOMContentLoaded', renderStressGallery);
+  window.addEventListener('DOMContentLoaded', renderStressCorpus);
 })();

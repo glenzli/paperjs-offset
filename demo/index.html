@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>paperjs-offset demos</title>
+    <title>paperjs-offset guide</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="./demo.css">
     <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
@@ -13,63 +13,101 @@
   <body>
     <main class="page">
       <header class="page-header">
-        <p class="eyebrow">paperjs-offset</p>
-        <h1>Offset and expanded stroke examples for Paper.js paths</h1>
+        <p class="eyebrow">paperjs-offset guide</p>
+        <h1>Path offset examples for Paper.js projects</h1>
         <p class="intro">
-          These examples run against the browser bundle in this repository. Rebuild with
-          <code>npm run build</code> after changing the library code.
+          A compact guide to the two operations this package provides, the options that change their output,
+          and the quality checks behind <code>algorithm: 'auto'</code>.
         </p>
         <nav class="demo-nav" aria-label="Demo pages">
-          <a href="./index.html" aria-current="page">Gallery</a>
-          <a href="./stress.html">Stress</a>
-          <a href="./debug.html">Debug case</a>
+          <a href="./index.html" aria-current="page">Guide</a>
+          <a href="./stress.html">Stress corpus</a>
         </nav>
       </header>
 
-      <section class="demo-grid" aria-label="Offset examples">
-        <article class="demo-card" data-demo-card>
-          <div class="demo-copy">
-            <h2>Closed path offset</h2>
-            <p>Positive offsets expand the source path; negative offsets contract it. The source stays visible on top.</p>
+      <section class="guide-summary" aria-label="Guide topics">
+        <p><strong>Offset</strong><span>Expand or contract closed paths.</span></p>
+        <p><strong>Stroke</strong><span>Convert stroked paths into filled outlines.</span></p>
+        <p><strong>Auto</strong><span>Try multiple strategies and choose the best-scored result.</span></p>
+      </section>
+
+      <section class="guide-list" aria-label="Offset guide">
+        <article class="guide-card" data-demo-card>
+          <div class="guide-visual">
+            <canvas data-demo="offset-direction" width="640" height="380" aria-label="Positive and negative offset demo"></canvas>
           </div>
-          <canvas data-demo="closed-offset" width="560" height="340" aria-label="Closed path offset demo"></canvas>
-          <pre><code></code></pre>
+          <div class="guide-copy">
+            <p class="step-label">01 / Offset direction</p>
+            <h2>Positive expands, negative contracts</h2>
+            <p>Closed paths can be offset outward or inward. The source shape remains visible so the distance and direction are easy to compare.</p>
+            <p class="demo-quality" aria-live="polite"></p>
+            <pre><code></code></pre>
+          </div>
         </article>
 
-        <article class="demo-card" data-demo-card>
-          <div class="demo-copy">
-            <h2>Join styles</h2>
-            <p>Use <code>miter</code>, <code>bevel</code>, or <code>round</code> joins when connecting adjacent offset curves.</p>
+        <article class="guide-card" data-demo-card>
+          <div class="guide-visual">
+            <canvas data-demo="join-styles" width="640" height="380" aria-label="Join style comparison demo"></canvas>
           </div>
-          <canvas data-demo="join-styles" width="560" height="340" aria-label="Join styles demo"></canvas>
-          <pre><code></code></pre>
+          <div class="guide-copy">
+            <p class="step-label">02 / Joins</p>
+            <h2>Joins decide how corners are rebuilt</h2>
+            <p>Miter, bevel, and round joins produce different corner geometry. Miter joins also respect the configured limit.</p>
+            <p class="demo-quality" aria-live="polite"></p>
+            <pre><code></code></pre>
+          </div>
         </article>
 
-        <article class="demo-card" data-demo-card>
-          <div class="demo-copy">
-            <h2>Compound shape cleanup</h2>
-            <p>Boolean-normalized shapes can be offset repeatedly, but aggressive negative offsets may still expose edge cases.</p>
+        <article class="guide-card" data-demo-card>
+          <div class="guide-visual">
+            <canvas data-demo="stroke-outline" width="640" height="380" aria-label="Stroke outline demo"></canvas>
           </div>
-          <canvas data-demo="compound-shape" width="560" height="340" aria-label="Compound shape offset demo"></canvas>
-          <pre><code></code></pre>
+          <div class="guide-copy">
+            <p class="step-label">03 / Strokes</p>
+            <h2>Strokes become filled outlines</h2>
+            <p><code>offsetStroke</code> handles open and closed paths. Open-path terminals use <code>butt</code> or <code>round</code> caps.</p>
+            <p class="demo-quality" aria-live="polite"></p>
+            <pre><code></code></pre>
+          </div>
         </article>
 
-        <article class="demo-card" data-demo-card>
-          <div class="demo-copy">
-            <h2>Stroke expansion</h2>
-            <p><code>offsetStroke</code> expands open paths into filled outlines, with butt and round caps for terminals.</p>
+        <article class="guide-card" data-demo-card>
+          <div class="guide-visual">
+            <canvas data-demo="compound-paths" width="640" height="380" aria-label="Compound path offset demo"></canvas>
           </div>
-          <canvas data-demo="stroke-expansion" width="560" height="340" aria-label="Stroke expansion demo"></canvas>
-          <pre><code></code></pre>
+          <div class="guide-copy">
+            <p class="step-label">04 / Compound paths</p>
+            <h2>Boolean shapes need normalization</h2>
+            <p>Compound paths are normalized before and after offsetting, which helps repeated offsets stay coherent.</p>
+            <p class="demo-quality" aria-live="polite"></p>
+            <pre><code></code></pre>
+          </div>
         </article>
 
-        <article class="demo-card" data-demo-card>
-          <div class="demo-copy">
-            <h2>Curve stress case</h2>
-            <p>A compact reproduction area for the kind of self-intersection and curve-fitting cases that usually become issues.</p>
+        <article class="guide-card" data-demo-card>
+          <div class="guide-visual">
+            <canvas data-demo="auto-strategy" width="640" height="380" aria-label="Auto strategy comparison demo"></canvas>
           </div>
-          <canvas data-demo="curve-stress" width="560" height="340" aria-label="Curve stress case demo"></canvas>
-          <pre><code></code></pre>
+          <div class="guide-copy">
+            <p class="step-label">05 / Strategy</p>
+            <h2>Auto chooses the cleaner result</h2>
+            <p>The auto strategy compares candidate results with the same scoring function exposed by <code>analyze</code>.</p>
+            <p class="demo-quality" aria-live="polite"></p>
+            <pre><code></code></pre>
+          </div>
+        </article>
+
+        <article class="guide-card" data-demo-card>
+          <div class="guide-visual">
+            <canvas data-demo="quality-score" width="640" height="380" aria-label="Quality score demo"></canvas>
+          </div>
+          <div class="guide-copy">
+            <p class="step-label">06 / Quality</p>
+            <h2>Quality warnings make hard cases inspectable</h2>
+            <p><code>analyze</code> reports score, self-intersections, containment errors, and other warning signals for generated paths.</p>
+            <p class="demo-quality" aria-live="polite"></p>
+            <pre><code></code></pre>
+          </div>
         </article>
       </section>
     </main>

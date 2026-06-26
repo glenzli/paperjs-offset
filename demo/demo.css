@@ -29,8 +29,8 @@ code {
 }
 
 .page-header {
-  max-width: 760px;
-  margin-bottom: 32px;
+  max-width: 820px;
+  margin-bottom: 28px;
 }
 
 .eyebrow {
@@ -94,16 +94,44 @@ h2 {
   color: #0f766e;
 }
 
-.demo-grid {
+.guide-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
 }
 
-.demo-card {
+.guide-summary p {
   display: grid;
-  grid-template-rows: auto auto minmax(132px, auto);
-  gap: 16px;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #d9e0e5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.guide-summary strong {
+  color: #16181a;
+  font-size: 0.95rem;
+}
+
+.guide-summary span {
+  color: #596168;
+  font-size: 0.86rem;
+}
+
+.guide-list {
+  display: grid;
+  gap: 20px;
+}
+
+.guide-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  gap: 18px;
+  align-items: stretch;
   padding: 18px;
   border: 1px solid #d9e0e5;
   border-radius: 8px;
@@ -111,9 +139,40 @@ h2 {
   box-shadow: 0 14px 34px rgba(27, 43, 52, 0.08);
 }
 
-.demo-copy p {
+.guide-visual {
+  min-width: 0;
+}
+
+.guide-copy {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(150px, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.guide-copy p {
   margin-bottom: 0;
   color: #596168;
+}
+
+.step-label {
+  color: #0f766e;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-quality {
+  min-height: 24px;
+  padding: 7px 9px;
+  border: 1px solid #d7e2e0;
+  border-radius: 6px;
+  background: #f7fbfa;
+  color: #334155;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
 }
 
 canvas {
@@ -132,7 +191,7 @@ canvas {
 
 pre {
   overflow: auto;
-  min-height: 132px;
+  min-height: 150px;
   margin: 0;
   padding: 14px;
   border: 1px solid #dce3e8;
@@ -142,17 +201,6 @@ pre {
   font-size: 0.82rem;
   line-height: 1.45;
   white-space: pre;
-}
-
-.debug-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-}
-
-.debug-layout canvas {
-  aspect-ratio: 12 / 7;
-  max-width: 100%;
 }
 
 .stress-summary {
@@ -220,11 +268,26 @@ pre {
     padding-top: 28px;
   }
 
-  .demo-card {
+  .guide-summary,
+  .guide-card {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-card {
     padding: 14px;
+  }
+
+  .guide-copy {
+    grid-template-rows: auto;
   }
 
   pre {
     font-size: 0.76rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 960px) {
+  .guide-card {
+    grid-template-columns: 1fr;
   }
 }
