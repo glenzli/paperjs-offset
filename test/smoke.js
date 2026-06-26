@@ -96,9 +96,25 @@ paper.setup(new paper.Size(1200, 900));
   ]);
   path.translate(new paper.Point(-100, -100));
 
-  const result = PaperOffset.offset(path, 24, { insert: false });
+  const legacy = PaperOffset.offset(path, 24, {
+    insert: false,
+    algorithm: 'legacy',
+  });
+  const robust = PaperOffset.offset(path, 24, {
+    insert: false,
+    algorithm: 'robust',
+  });
+  const result = PaperOffset.offset(path, 24, {
+    insert: false,
+    algorithm: 'auto',
+  });
+  const legacyQuality = PaperOffset.analyze(path, legacy, 24);
+  const resultQuality = PaperOffset.analyze(path, result, 24);
 
   assert.strictEqual(result.className, 'Path');
   assert.strictEqual(result.closed, true);
+  assert.ok(resultQuality.score < legacyQuality.score, 'auto result should score better than legacy result');
+  approx(legacy.area, 27427.13, 0.5, 'legacy concave miter offset area');
+  approx(robust.area, 27465.24, 0.5, 'robust concave miter offset area');
   approx(result.area, 27465.24, 0.5, 'closed concave miter offset area');
 }

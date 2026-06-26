@@ -2,6 +2,32 @@
     'use strict';
 
     var MAX_RECURSION_TIME = 20;
+    var STRATEGIES = [
+        {
+            algorithm: 'robust',
+            splitSelfIntersectingCurves: true,
+            guardInsideJoins: true,
+            simplifySelfIntersectingStroke: true,
+        },
+        {
+            algorithm: 'split',
+            splitSelfIntersectingCurves: true,
+            guardInsideJoins: false,
+            simplifySelfIntersectingStroke: false,
+        },
+        {
+            algorithm: 'legacy',
+            splitSelfIntersectingCurves: false,
+            guardInsideJoins: false,
+            simplifySelfIntersectingStroke: false,
+        },
+    ];
+    function getStrategy(algorithm) {
+        if (algorithm === 'auto') {
+            return STRATEGIES[0];
+        }
+        return STRATEGIES.filter(function (strategy) { return strategy.algorithm === algorithm; })[0] || STRATEGIES[0];
+    }
     /**
      * Offset the start/terminal segment of a bezier curve
      * @param segment segment to offset
@@ -26,7 +52,7 @@
      * @param curve curve to offset
      * @param offset offset value
      */
-    function adaptiveOffsetCurve(curve, offset, recursionTime) {
+    function adaptiveOffsetCurve(curve, offset, strategy, recursionTime) {
         if (recursionTime === void 0) { recursionTime = 0; }
         var hNormal = (new paper.Curve(curve.segment1.handleOut.add(curve.segment1.point), new paper.Point(0, 0), new paper.Point(0, 0), curve.segment2.handleIn.add(curve.segment2.point))).getNormalAtTime(0.5).multiply(offset);
         var segment1 = offsetSegment(curve.segment1, curve, hNormal, offset);
@@ -39,11 +65,14 @@
         var offsetCurveIntersections = offsetCurve.getIntersections(offsetCurve);
         var threshold = Math.min(Math.abs(offset) / 10, 1);
         var midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
-        if (offsetCurveIntersections.length > 0 || Math.abs(midOffset - Math.abs(offset)) > threshold) {
+        var needsSplit = strategy.splitSelfIntersectingCurves
+            ? offsetCurveIntersections.length > 0 || Math.abs(midOffset - Math.abs(offset)) > threshold
+            : offsetCurveIntersections.length === 0 && Math.abs(midOffset - Math.abs(offset)) > threshold;
+        if (needsSplit) {
             var subCurve = curve.divideAtTime(0.5);
             if (subCurve != null) {
-                return adaptiveOffsetCurve(curve, offset, recursionTime + 1)
-                    .concat(adaptiveOffsetCurve(subCurve, offset, recursionTime + 1));
+                return adaptiveOffsetCurve(curve, offset, strategy, recursionTime + 1)
+                    .concat(adaptiveOffsetCurve(subCurve, offset, strategy, recursionTime + 1));
             }
         }
         return [segment1, segment2];
@@ -88,12 +117,12 @@
         var turn = det(tangentIn, tangentOut);
         return Math.abs(turn) < 1e-9 || turn * offset > 0;
     }
-    function connectAdjacentBezier(segments1, segments2, origin, joinType, offset, limit, closed) {
+    function connectAdjacentBezier(segments1, segments2, origin, joinType, offset, limit, closed, strategy) {
         var curve1 = new paper.Curve(segments1[0], segments1[1]);
         var curve2 = new paper.Curve(segments2[0], segments2[1]);
         var intersection = curve1.getIntersections(curve2);
         var distance = segments1[1].point.getDistance(segments2[0].point);
-        var shouldJoin = !closed || isOutsideJoin(origin, offset);
+        var shouldJoin = !closed || !strategy.guardInsideJoins || isOutsideJoin(origin, offset);
         if (origin.isSmooth()) {
             segments2[0].handleOut = segments2[0].handleOut.project(origin.handleOut);
             segments2[0].handleIn = segments1[1].handleIn.project(origin.handleIn);
@@ -149,14 +178,14 @@
     /**
      * Connect all the segments together.
      */
-    function connectBeziers(rawSegments, join, source, offset, limit) {
+    function connectBeziers(rawSegments, join, source, offset, limit, strategy) {
         var originSegments = source.segments;
         var first = rawSegments[0].slice();
         for (var i = 0; i < rawSegments.length - 1; ++i) {
-            connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit, source.closed);
+            connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit, source.closed, strategy);
         }
         if (source.closed) {
-            connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit, source.closed);
+            connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit, source.closed, strategy);
             rawSegments[0][0] = first[0];
         }
         return rawSegments;
@@ -177,6 +206,7 @@
                 path.reverse();
             }
             path = path.unite(path, { insert: false });
+            path = path.resolveCrossings();
             if (path instanceof paper.CompoundPath) {
                 path.children.filter(function (c) { return Math.abs(c.area) < ignoreArea_1; }).forEach(function (c) { return c.remove(); });
                 if (path.children.length === 1) {
@@ -185,6 +215,15 @@
             }
         }
         return path;
+    }
+    function cleanupStrokeOutline(path, offset, strategy) {
+        var result = normalize(path);
+        if (strategy.simplifySelfIntersectingStroke && countSelfIntersections(result) > 0) {
+            var simplified = result.clone({ insert: false });
+            simplified.simplify(Math.max(Math.min(Math.abs(offset) * 0.02, 0.5), 0.1));
+            result = normalize(simplified);
+        }
+        return result;
     }
     function isSameDirection(partialPath, fullPath) {
         var offset1 = partialPath.segments[0].location.offset;
@@ -240,17 +279,17 @@
         }
         return [source, offset];
     }
-    function offsetSimpleShape(path, offset, join, limit) {
+    function offsetSimpleShape(path, offset, join, limit, strategy) {
         var _a;
         var source;
         _a = preparePath(path, offset), source = _a[0], offset = _a[1];
         var curves = source.curves.slice();
-        var offsetCurves = curves.map(function (curve) { return adaptiveOffsetCurve(curve, offset); }).flat();
+        var offsetCurves = curves.map(function (curve) { return adaptiveOffsetCurve(curve, offset, strategy); }).flat();
         var raws = [];
         for (var i = 0; i < offsetCurves.length; i += 2) {
             raws.push(offsetCurves.slice(i, i + 2));
         }
-        var segments = connectBeziers(raws, join, source, offset, limit).flat();
+        var segments = connectBeziers(raws, join, source, offset, limit, strategy).flat();
         var newPath = removeIntersection(new paper.Path({ segments: segments, insert: false, closed: path.closed }));
         newPath.reduce({});
         if (source.closed && ((source.clockwise && offset < 0) || (!source.clockwise && offset > 0))) {
@@ -287,12 +326,12 @@
             default: return new paper.Path({ segments: oSegments.concat(iSegments), closed: true, insert: false });
         }
     }
-    function offsetSimpleStroke(path, offset, join, cap, limit) {
+    function offsetSimpleStroke(path, offset, join, cap, limit, strategy) {
         offset = path.closed && !path.clockwise ? -offset : offset;
-        var positiveOffset = offsetSimpleShape(path, offset, join, limit);
-        var negativeOffset = offsetSimpleShape(path, -offset, join, limit);
+        var positiveOffset = offsetSimpleShape(path, offset, join, limit, strategy);
+        var negativeOffset = offsetSimpleShape(path, -offset, join, limit, strategy);
         if (path.closed) {
-            return positiveOffset.subtract(negativeOffset, { insert: false });
+            return cleanupStrokeOutline(positiveOffset.subtract(negativeOffset, { insert: false }), offset, strategy);
         }
         else {
             var inner = negativeOffset;
@@ -310,8 +349,175 @@
                     final = final.subtract(hole, { insert: false });
                 }
             }
-            return final;
+            return cleanupStrokeOutline(final, offset, strategy);
         }
+    }
+    function getChildPaths(path) {
+        if (path instanceof paper.CompoundPath) {
+            return path.children;
+        }
+        return [path];
+    }
+    function finiteNumber(value) {
+        return Number.isFinite(value);
+    }
+    function countSelfIntersections(path) {
+        if (!path.closed) {
+            return 0;
+        }
+        try {
+            var children_1 = getChildPaths(path);
+            var count_1 = 0;
+            children_1.forEach(function (child, index) {
+                count_1 += child.getIntersections(child).length;
+                for (var i = index + 1; i < children_1.length; i += 1) {
+                    count_1 += child.getIntersections(children_1[i]).length;
+                }
+            });
+            return count_1;
+        }
+        catch (error) {
+            return 0;
+        }
+    }
+    function samplePoints(path, maxPerChild) {
+        if (maxPerChild === void 0) { maxPerChild = 16; }
+        var points = [];
+        getChildPaths(path).forEach(function (child) {
+            if (!child.length || child.segments.length === 0) {
+                return;
+            }
+            var count = Math.min(maxPerChild, Math.max(4, Math.ceil(child.length / 30)));
+            for (var i = 0; i < count; i += 1) {
+                var ratio = child.closed ? i / count : i / Math.max(count - 1, 1);
+                var point = child.getPointAt(child.length * ratio);
+                if (point) {
+                    points.push(point);
+                }
+            }
+        });
+        return points;
+    }
+    function containsPoint(path, point) {
+        try {
+            return path.contains(point);
+        }
+        catch (error) {
+            return false;
+        }
+    }
+    function distanceToPath(path, point) {
+        try {
+            var nearest = path.getNearestPoint(point);
+            return nearest ? nearest.getDistance(point) : Number.POSITIVE_INFINITY;
+        }
+        catch (error) {
+            return Number.POSITIVE_INFINITY;
+        }
+    }
+    function addWarning(warnings, warning) {
+        if (warnings.indexOf(warning) === -1) {
+            warnings.push(warning);
+        }
+    }
+    function analyzeOffsetQuality(source, result, offset, options) {
+        if (options === void 0) { options = {}; }
+        var warnings = new Array();
+        var expectedClosed = options.stroke ? true : source.closed;
+        var segmentCount = getSegments(result).length;
+        var area = Math.abs(result.area || 0);
+        var absOffset = Math.abs(offset);
+        var score = segmentCount * 0.01;
+        var containmentErrors = 0;
+        var distanceErrors = 0;
+        var bounds = result.bounds;
+        if (segmentCount === 0) {
+            score += 100000;
+            addWarning(warnings, 'empty-result');
+        }
+        if (!bounds || !finiteNumber(bounds.x) || !finiteNumber(bounds.y) || !finiteNumber(bounds.width) || !finiteNumber(bounds.height)) {
+            score += 100000;
+            addWarning(warnings, 'non-finite-bounds');
+        }
+        if (result.closed !== expectedClosed) {
+            score += 50000;
+            addWarning(warnings, 'unexpected-closed-state');
+        }
+        var selfIntersections = countSelfIntersections(result);
+        if (selfIntersections > 0) {
+            score += selfIntersections * 1000;
+            addWarning(warnings, 'self-intersection');
+        }
+        if (source.closed && result.closed && !options.stroke) {
+            var sourceArea = Math.abs(source.area || 0);
+            if (sourceArea > 0 && offset > 0 && area < sourceArea * 0.95) {
+                score += ((sourceArea - area) / sourceArea) * 2000;
+                addWarning(warnings, 'positive-offset-area-shrank');
+            }
+            if (sourceArea > 0 && offset < 0 && area > sourceArea * 1.05) {
+                score += ((area - sourceArea) / sourceArea) * 2000;
+                addWarning(warnings, 'negative-offset-area-grew');
+            }
+            var containmentTolerance_1 = Math.max(absOffset * 0.08, 0.5);
+            var containmentSamples = offset >= 0 ? samplePoints(source) : samplePoints(result);
+            containmentSamples.forEach(function (point) {
+                var container = offset >= 0 ? result : source;
+                if (!containsPoint(container, point) && distanceToPath(container, point) > containmentTolerance_1) {
+                    containmentErrors += 1;
+                }
+            });
+            if (containmentErrors > 0) {
+                score += containmentErrors * 150;
+                addWarning(warnings, offset >= 0 ? 'source-outside-positive-offset' : 'negative-offset-outside-source');
+            }
+        }
+        if (absOffset > 0.001) {
+            var distanceTolerance_1 = Math.max(absOffset * 0.18, 0.75);
+            samplePoints(result).forEach(function (point) {
+                var distance = distanceToPath(source, point);
+                if (finiteNumber(distance) && distance < distanceTolerance_1) {
+                    distanceErrors += 1;
+                }
+            });
+            if (distanceErrors > 0) {
+                score += distanceErrors * 35;
+                addWarning(warnings, 'offset-distance-collapse');
+            }
+        }
+        return {
+            score: score,
+            warnings: warnings,
+            selfIntersections: selfIntersections,
+            containmentErrors: containmentErrors,
+            distanceErrors: distanceErrors,
+            segmentCount: segmentCount,
+            area: area,
+        };
+    }
+    function pickBestResult(source, offset, stroke, makeResult) {
+        var bestResult = null;
+        var bestQuality = null;
+        var firstError = null;
+        STRATEGIES.forEach(function (strategy) {
+            try {
+                var result = makeResult(strategy);
+                var quality = analyzeOffsetQuality(source, result, offset, { stroke: stroke });
+                quality.algorithm = strategy.algorithm;
+                if (!bestQuality || quality.score < bestQuality.score) {
+                    bestResult = result;
+                    bestQuality = quality;
+                }
+            }
+            catch (error) {
+                if (!firstError && error instanceof Error) {
+                    firstError = error;
+                }
+            }
+        });
+        if (!bestResult) {
+            throw firstError || new Error('Unable to offset path with any algorithm');
+        }
+        return bestResult;
     }
     function getNonSelfItersectionPath(path) {
         if (path.closed) {
@@ -319,11 +525,11 @@
         }
         return path;
     }
-    function offsetPath(path, offset, join, limit) {
+    function offsetPathWithStrategy(path, offset, join, limit, strategy) {
         var nonSIPath = getNonSelfItersectionPath(path);
         var result = nonSIPath;
         if (nonSIPath instanceof paper.Path) {
-            result = offsetSimpleShape(nonSIPath, offset, join, limit);
+            result = offsetSimpleShape(nonSIPath, offset, join, limit, strategy);
         }
         else {
             var offsetParts = nonSIPath.children.map(function (c) {
@@ -331,7 +537,7 @@
                     if (!isSameDirection(c, path)) {
                         c.reverse();
                     }
-                    var offseted = offsetSimpleShape(c, offset, join, limit);
+                    var offseted = offsetSimpleShape(c, offset, join, limit, strategy);
                     offseted = normalize(offseted);
                     if (offseted.clockwise !== c.clockwise) {
                         offseted.reverse();
@@ -351,19 +557,27 @@
             var children = offsetParts.flat().filter(function (c) { return !!c; });
             result = new paper.CompoundPath({ children: children, insert: false });
         }
+        result = normalize(result);
         result.copyAttributes(nonSIPath, false);
         result.remove();
         return result;
     }
-    function offsetStroke(path, offset, join, cap, limit) {
+    function offsetPath(path, offset, join, limit, algorithm) {
+        if (algorithm === void 0) { algorithm = 'auto'; }
+        if (algorithm === 'auto') {
+            return pickBestResult(path, offset, false, function (strategy) { return offsetPathWithStrategy(path, offset, join, limit, strategy); });
+        }
+        return offsetPathWithStrategy(path, offset, join, limit, getStrategy(algorithm));
+    }
+    function offsetStrokeWithStrategy(path, offset, join, cap, limit, strategy) {
         var nonSIPath = getNonSelfItersectionPath(path);
         var result = nonSIPath;
         if (nonSIPath instanceof paper.Path) {
-            result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit);
+            result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit, strategy);
         }
         else {
             var children = nonSIPath.children.flatMap(function (c) {
-                return offsetSimpleStroke(c, offset, join, cap, limit);
+                return offsetSimpleStroke(c, offset, join, cap, limit, strategy);
             });
             result = children.reduce(function (c1, c2) { return c1.unite(c2, { insert: false }); });
         }
@@ -374,13 +588,20 @@
         result.shadowOffset = nonSIPath.shadowOffset;
         return result;
     }
+    function offsetStroke(path, offset, join, cap, limit, algorithm) {
+        if (algorithm === void 0) { algorithm = 'auto'; }
+        if (algorithm === 'auto') {
+            return pickBestResult(path, offset, true, function (strategy) { return offsetStrokeWithStrategy(path, offset, join, cap, limit, strategy); });
+        }
+        return offsetStrokeWithStrategy(path, offset, join, cap, limit, getStrategy(algorithm));
+    }
 
     var PaperOffset = /** @class */ (function () {
         function PaperOffset() {
         }
         PaperOffset.offset = function (path, offset, options) {
             options = options || {};
-            var newPath = offsetPath(path, offset, options.join || 'miter', options.limit || 10);
+            var newPath = offsetPath(path, offset, options.join || 'miter', options.limit || 10, options.algorithm || 'auto');
             if (options.insert === undefined) {
                 options.insert = true;
             }
@@ -391,7 +612,7 @@
         };
         PaperOffset.offsetStroke = function (path, offset, options) {
             options = options || {};
-            var newPath = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10);
+            var newPath = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10, options.algorithm || 'auto');
             if (options.insert === undefined) {
                 options.insert = true;
             }
@@ -399,6 +620,9 @@
                 (path.parent || paper.project.activeLayer).addChild(newPath);
             }
             return newPath;
+        };
+        PaperOffset.analyze = function (source, result, offset, options) {
+            return analyzeOffsetQuality(source, result, offset, options || {});
         };
         return PaperOffset;
     }());
@@ -424,6 +648,7 @@
     window.PaperOffset = {
         offset: PaperOffset.offset,
         offsetStroke: PaperOffset.offsetStroke,
+        analyze: PaperOffset.analyze,
     };
 
 })(paper);

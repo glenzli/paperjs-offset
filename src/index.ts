@@ -1,17 +1,20 @@
 import paper from 'paper';
-import { StrokeJoinType, PathType, StrokeCapType, offsetPath, offsetStroke } from './offset_core';
+import { StrokeJoinType, PathType, StrokeCapType, OffsetAlgorithm, OffsetQuality, OffsetQualityOptions, analyzeOffsetQuality, offsetPath, offsetStroke } from './offset_core';
+
+export { OffsetAlgorithm, OffsetQuality, OffsetQualityOptions };
 
 export interface OffsetOptions {
   join?: StrokeJoinType;
   cap?: StrokeCapType;
   limit?: number;
   insert?: boolean;
+  algorithm?: OffsetAlgorithm;
 }
 
 export class PaperOffset {
   public static offset(path: PathType, offset: number, options?: OffsetOptions): PathType {
     options = options || {};
-    const newPath = offsetPath(path, offset, options.join || 'miter', options.limit || 10);
+    const newPath = offsetPath(path, offset, options.join || 'miter', options.limit || 10, options.algorithm || 'auto');
     if (options.insert === undefined) {
       options.insert = true;
     }
@@ -23,7 +26,7 @@ export class PaperOffset {
 
   public static offsetStroke(path: PathType, offset: number, options?: OffsetOptions): PathType {
     options = options || {};
-    const newPath = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10);
+    const newPath = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10, options.algorithm || 'auto');
     if (options.insert === undefined) {
       options.insert = true;
     }
@@ -31,6 +34,10 @@ export class PaperOffset {
       (path.parent || paper.project.activeLayer).addChild(newPath);
     }
     return newPath;
+  }
+
+  public static analyze(source: PathType, result: PathType, offset: number, options?: OffsetQualityOptions): OffsetQuality {
+    return analyzeOffsetQuality(source, result, offset, options || {});
   }
 }
 

@@ -2,9 +2,60 @@ import paper from 'paper';
 
 export type StrokeJoinType = 'miter' | 'bevel' | 'round';
 export type StrokeCapType = 'round' | 'butt';
+export type OffsetAlgorithm = 'auto' | 'legacy' | 'split' | 'robust';
 export type PathType = paper.Path | paper.CompoundPath;
 const MAX_RECURSION_TIME = 20;
 type HandleType = 'handleIn' | 'handleOut';
+
+interface OffsetStrategy {
+  algorithm: Exclude<OffsetAlgorithm, 'auto'>;
+  splitSelfIntersectingCurves: boolean;
+  guardInsideJoins: boolean;
+  simplifySelfIntersectingStroke: boolean;
+}
+
+export interface OffsetQuality {
+  algorithm?: OffsetAlgorithm;
+  score: number;
+  warnings: string[];
+  selfIntersections: number;
+  containmentErrors: number;
+  distanceErrors: number;
+  segmentCount: number;
+  area: number;
+}
+
+export interface OffsetQualityOptions {
+  stroke?: boolean;
+}
+
+const STRATEGIES: OffsetStrategy[] = [
+  {
+    algorithm: 'robust',
+    splitSelfIntersectingCurves: true,
+    guardInsideJoins: true,
+    simplifySelfIntersectingStroke: true,
+  },
+  {
+    algorithm: 'split',
+    splitSelfIntersectingCurves: true,
+    guardInsideJoins: false,
+    simplifySelfIntersectingStroke: false,
+  },
+  {
+    algorithm: 'legacy',
+    splitSelfIntersectingCurves: false,
+    guardInsideJoins: false,
+    simplifySelfIntersectingStroke: false,
+  },
+];
+
+function getStrategy(algorithm: OffsetAlgorithm): OffsetStrategy {
+  if (algorithm === 'auto') {
+    return STRATEGIES[0];
+  }
+  return STRATEGIES.filter((strategy) => strategy.algorithm === algorithm)[0] || STRATEGIES[0];
+}
 
 /**
  * Offset the start/terminal segment of a bezier curve
@@ -31,7 +82,7 @@ function offsetSegment(segment: paper.Segment, curve: paper.Curve, handleNormal:
  * @param curve curve to offset
  * @param offset offset value
  */
-function adaptiveOffsetCurve(curve: paper.Curve, offset: number, recursionTime = 0): paper.Segment[] {
+function adaptiveOffsetCurve(curve: paper.Curve, offset: number, strategy: OffsetStrategy, recursionTime = 0): paper.Segment[] {
   const hNormal = (new paper.Curve(curve.segment1.handleOut!.add(curve.segment1.point), new paper.Point(0, 0),
     new paper.Point(0, 0), curve.segment2.handleIn!.add(curve.segment2.point))).getNormalAtTime(0.5).multiply(offset);
   const segment1 = offsetSegment(curve.segment1, curve, hNormal, offset);
@@ -44,11 +95,14 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number, recursionTime =
   const offsetCurveIntersections = offsetCurve.getIntersections(offsetCurve);
   const threshold = Math.min(Math.abs(offset) / 10, 1);
   const midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
-  if (offsetCurveIntersections.length > 0 || Math.abs(midOffset - Math.abs(offset)) > threshold) {
+  const needsSplit = strategy.splitSelfIntersectingCurves
+    ? offsetCurveIntersections.length > 0 || Math.abs(midOffset - Math.abs(offset)) > threshold
+    : offsetCurveIntersections.length === 0 && Math.abs(midOffset - Math.abs(offset)) > threshold;
+  if (needsSplit) {
     const subCurve = curve.divideAtTime(0.5);
     if (subCurve != null) {
-      return adaptiveOffsetCurve(curve, offset, recursionTime + 1)
-        .concat(adaptiveOffsetCurve(subCurve, offset, recursionTime + 1));
+      return adaptiveOffsetCurve(curve, offset, strategy, recursionTime + 1)
+        .concat(adaptiveOffsetCurve(subCurve, offset, strategy, recursionTime + 1));
     }
   }
   return [segment1, segment2];
@@ -97,12 +151,12 @@ function isOutsideJoin(origin: paper.Segment, offset: number) {
   return Math.abs(turn) < 1e-9 || turn * offset > 0;
 }
 
-function connectAdjacentBezier(segments1: paper.Segment[], segments2: paper.Segment[], origin: paper.Segment, joinType: StrokeJoinType, offset: number, limit: number, closed: boolean) {
+function connectAdjacentBezier(segments1: paper.Segment[], segments2: paper.Segment[], origin: paper.Segment, joinType: StrokeJoinType, offset: number, limit: number, closed: boolean, strategy: OffsetStrategy) {
   const curve1 = new paper.Curve(segments1[0], segments1[1]);
   const curve2 = new paper.Curve(segments2[0], segments2[1]);
   const intersection = curve1.getIntersections(curve2);
   const distance = segments1[1].point.getDistance(segments2[0].point);
-  const shouldJoin = !closed || isOutsideJoin(origin, offset);
+  const shouldJoin = !closed || !strategy.guardInsideJoins || isOutsideJoin(origin, offset);
   if (origin.isSmooth()) {
     segments2[0].handleOut = segments2[0].handleOut!.project(origin.handleOut!);
     segments2[0].handleIn = segments1[1].handleIn!.project(origin.handleIn!);
@@ -157,14 +211,14 @@ function connectAdjacentBezier(segments1: paper.Segment[], segments2: paper.Segm
 /**
  * Connect all the segments together.
  */
-function connectBeziers(rawSegments: paper.Segment[][], join: StrokeJoinType, source: paper.Path, offset: number, limit: number) {
+function connectBeziers(rawSegments: paper.Segment[][], join: StrokeJoinType, source: paper.Path, offset: number, limit: number, strategy: OffsetStrategy) {
   const originSegments = source.segments;
   const first = rawSegments[0].slice();
   for (let i = 0; i < rawSegments.length - 1; ++i) {
-    connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit, source.closed);
+    connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit, source.closed, strategy);
   }
   if (source.closed) {
-    connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit, source.closed);
+    connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit, source.closed, strategy);
     rawSegments[0][0] = first[0];
   }
   return rawSegments;
@@ -186,6 +240,7 @@ function normalize(path: PathType, areaThreshold = 0.01) {
       path.reverse();
     }
     path = path.unite(path, { insert: false }) as PathType;
+    path = (path as any).resolveCrossings() as PathType;
     if (path instanceof paper.CompoundPath) {
       path.children.filter((c) => Math.abs((c as PathType).area) < ignoreArea).forEach((c) => c.remove());
       if (path.children.length === 1) {
@@ -194,6 +249,16 @@ function normalize(path: PathType, areaThreshold = 0.01) {
     }
   }
   return path;
+}
+
+function cleanupStrokeOutline(path: PathType, offset: number, strategy: OffsetStrategy) {
+  let result = normalize(path);
+  if (strategy.simplifySelfIntersectingStroke && countSelfIntersections(result) > 0) {
+    const simplified = result.clone({ insert: false }) as PathType;
+    (simplified as any).simplify(Math.max(Math.min(Math.abs(offset) * 0.02, 0.5), 0.1));
+    result = normalize(simplified);
+  }
+  return result;
 }
 
 function isSameDirection(partialPath: paper.Path, fullPath: PathType) {
@@ -253,16 +318,16 @@ function preparePath(path: paper.Path, offset: number): [paper.Path, number] {
   return [source, offset];
 }
 
-function offsetSimpleShape(path: paper.Path, offset: number, join: StrokeJoinType, limit: number): PathType {
+function offsetSimpleShape(path: paper.Path, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {
   let source: paper.Path;
   [source, offset] = preparePath(path, offset);
   const curves = source.curves.slice();
-  const offsetCurves = curves.map((curve) => adaptiveOffsetCurve(curve, offset)).flat();
+  const offsetCurves = curves.map((curve) => adaptiveOffsetCurve(curve, offset, strategy)).flat();
   const raws: paper.Segment[][] = [];
   for (let i = 0; i < offsetCurves.length; i += 2) {
     raws.push(offsetCurves.slice(i, i + 2));
   }
-  const segments = connectBeziers(raws, join, source, offset, limit).flat();
+  const segments = connectBeziers(raws, join, source, offset, limit, strategy).flat();
   const newPath = removeIntersection(new paper.Path({ segments, insert: false, closed: path.closed }));
   newPath.reduce({});
   if (source.closed && ((source.clockwise && offset < 0) || (!source.clockwise && offset > 0))) {
@@ -302,12 +367,12 @@ function connectSide(outer: PathType, inner: paper.Path, offset: number, cap: St
   }
 }
 
-function offsetSimpleStroke(path: paper.Path, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number): PathType {
+function offsetSimpleStroke(path: paper.Path, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number, strategy: OffsetStrategy): PathType {
   offset = path.closed && !path.clockwise ? -offset : offset;
-  const positiveOffset = offsetSimpleShape(path, offset, join, limit);
-  const negativeOffset = offsetSimpleShape(path, -offset, join, limit);
+  const positiveOffset = offsetSimpleShape(path, offset, join, limit, strategy);
+  const negativeOffset = offsetSimpleShape(path, -offset, join, limit, strategy);
   if (path.closed) {
-    return positiveOffset.subtract(negativeOffset, { insert: false }) as PathType;
+    return cleanupStrokeOutline(positiveOffset.subtract(negativeOffset, { insert: false }) as PathType, offset, strategy);
   } else {
     let inner = negativeOffset;
     let holes = new Array<paper.Path>();
@@ -323,8 +388,189 @@ function offsetSimpleStroke(path: paper.Path, offset: number, join: StrokeJoinTy
         final = final.subtract(hole, { insert: false }) as PathType;
       }
     }
-    return final;
+    return cleanupStrokeOutline(final, offset, strategy);
   }
+}
+
+function getChildPaths(path: PathType): paper.Path[] {
+  if (path instanceof paper.CompoundPath) {
+    return path.children as paper.Path[];
+  }
+  return [path as paper.Path];
+}
+
+function finiteNumber(value: number) {
+  return Number.isFinite(value);
+}
+
+function countSelfIntersections(path: PathType) {
+  if (!path.closed) {
+    return 0;
+  }
+  try {
+    const children = getChildPaths(path);
+    let count = 0;
+    children.forEach((child, index) => {
+      count += child.getIntersections(child).length;
+      for (let i = index + 1; i < children.length; i += 1) {
+        count += child.getIntersections(children[i]).length;
+      }
+    });
+    return count;
+  } catch (error) {
+    return 0;
+  }
+}
+
+function samplePoints(path: PathType, maxPerChild = 16) {
+  const points: paper.Point[] = [];
+  getChildPaths(path).forEach((child) => {
+    if (!child.length || child.segments.length === 0) {
+      return;
+    }
+    const count = Math.min(maxPerChild, Math.max(4, Math.ceil(child.length / 30)));
+    for (let i = 0; i < count; i += 1) {
+      const ratio = child.closed ? i / count : i / Math.max(count - 1, 1);
+      const point = child.getPointAt(child.length * ratio);
+      if (point) {
+        points.push(point);
+      }
+    }
+  });
+  return points;
+}
+
+function containsPoint(path: PathType, point: paper.Point) {
+  try {
+    return path.contains(point);
+  } catch (error) {
+    return false;
+  }
+}
+
+function distanceToPath(path: PathType, point: paper.Point) {
+  try {
+    const nearest = path.getNearestPoint(point);
+    return nearest ? nearest.getDistance(point) : Number.POSITIVE_INFINITY;
+  } catch (error) {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+function addWarning(warnings: string[], warning: string) {
+  if (warnings.indexOf(warning) === -1) {
+    warnings.push(warning);
+  }
+}
+
+export function analyzeOffsetQuality(source: PathType, result: PathType, offset: number, options: OffsetQualityOptions = {}): OffsetQuality {
+  const warnings = new Array<string>();
+  const expectedClosed = options.stroke ? true : source.closed;
+  const segmentCount = getSegments(result).length;
+  const area = Math.abs(result.area || 0);
+  const absOffset = Math.abs(offset);
+  let score = segmentCount * 0.01;
+  let containmentErrors = 0;
+  let distanceErrors = 0;
+  const bounds = result.bounds;
+
+  if (segmentCount === 0) {
+    score += 100000;
+    addWarning(warnings, 'empty-result');
+  }
+
+  if (!bounds || !finiteNumber(bounds.x) || !finiteNumber(bounds.y) || !finiteNumber(bounds.width) || !finiteNumber(bounds.height)) {
+    score += 100000;
+    addWarning(warnings, 'non-finite-bounds');
+  }
+
+  if (result.closed !== expectedClosed) {
+    score += 50000;
+    addWarning(warnings, 'unexpected-closed-state');
+  }
+
+  const selfIntersections = countSelfIntersections(result);
+  if (selfIntersections > 0) {
+    score += selfIntersections * 1000;
+    addWarning(warnings, 'self-intersection');
+  }
+
+  if (source.closed && result.closed && !options.stroke) {
+    const sourceArea = Math.abs(source.area || 0);
+    if (sourceArea > 0 && offset > 0 && area < sourceArea * 0.95) {
+      score += ((sourceArea - area) / sourceArea) * 2000;
+      addWarning(warnings, 'positive-offset-area-shrank');
+    }
+    if (sourceArea > 0 && offset < 0 && area > sourceArea * 1.05) {
+      score += ((area - sourceArea) / sourceArea) * 2000;
+      addWarning(warnings, 'negative-offset-area-grew');
+    }
+
+    const containmentTolerance = Math.max(absOffset * 0.08, 0.5);
+    const containmentSamples = offset >= 0 ? samplePoints(source) : samplePoints(result);
+    containmentSamples.forEach((point) => {
+      const container = offset >= 0 ? result : source;
+      if (!containsPoint(container, point) && distanceToPath(container, point) > containmentTolerance) {
+        containmentErrors += 1;
+      }
+    });
+    if (containmentErrors > 0) {
+      score += containmentErrors * 150;
+      addWarning(warnings, offset >= 0 ? 'source-outside-positive-offset' : 'negative-offset-outside-source');
+    }
+  }
+
+  if (absOffset > 0.001) {
+    const distanceTolerance = Math.max(absOffset * 0.18, 0.75);
+    samplePoints(result).forEach((point) => {
+      const distance = distanceToPath(source, point);
+      if (finiteNumber(distance) && distance < distanceTolerance) {
+        distanceErrors += 1;
+      }
+    });
+    if (distanceErrors > 0) {
+      score += distanceErrors * 35;
+      addWarning(warnings, 'offset-distance-collapse');
+    }
+  }
+
+  return {
+    score,
+    warnings,
+    selfIntersections,
+    containmentErrors,
+    distanceErrors,
+    segmentCount,
+    area,
+  };
+}
+
+function pickBestResult(source: PathType, offset: number, stroke: boolean, makeResult: (strategy: OffsetStrategy) => PathType): PathType {
+  let bestResult: PathType | null = null;
+  let bestQuality: OffsetQuality | null = null;
+  let firstError: Error | null = null;
+
+  STRATEGIES.forEach((strategy) => {
+    try {
+      const result = makeResult(strategy);
+      const quality = analyzeOffsetQuality(source, result, offset, { stroke });
+      quality.algorithm = strategy.algorithm;
+      if (!bestQuality || quality.score < bestQuality.score) {
+        bestResult = result;
+        bestQuality = quality;
+      }
+    } catch (error) {
+      if (!firstError && error instanceof Error) {
+        firstError = error;
+      }
+    }
+  });
+
+  if (!bestResult) {
+    throw firstError || new Error('Unable to offset path with any algorithm');
+  }
+
+  return bestResult;
 }
 
 function getNonSelfItersectionPath(path: PathType) {
@@ -334,18 +580,18 @@ function getNonSelfItersectionPath(path: PathType) {
   return path;
 }
 
-export function offsetPath(path: PathType, offset: number, join: StrokeJoinType, limit: number): PathType {
+function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {
   const nonSIPath = getNonSelfItersectionPath(path);
   let result = nonSIPath;
   if (nonSIPath instanceof paper.Path) {
-    result = offsetSimpleShape(nonSIPath, offset, join, limit);
+    result = offsetSimpleShape(nonSIPath, offset, join, limit, strategy);
   } else {
     const offsetParts = (nonSIPath.children as paper.Path[]).map((c) => {
       if (c.segments.length > 1) {
         if (!isSameDirection(c, path)) {
           c.reverse();
         }
-        let offseted = offsetSimpleShape(c, offset, join, limit);
+        let offseted = offsetSimpleShape(c, offset, join, limit, strategy);
         offseted = normalize(offseted);
         if (offseted.clockwise !== c.clockwise) {
           offseted.reverse();
@@ -363,19 +609,27 @@ export function offsetPath(path: PathType, offset: number, join: StrokeJoinType,
     const children = offsetParts.flat().filter((c) => !!c) as paper.Item[];
     result = new paper.CompoundPath({ children, insert: false });
   }
+  result = normalize(result);
   result.copyAttributes(nonSIPath, false);
   result.remove();
   return result;
 }
 
-export function offsetStroke(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number): PathType {
+export function offsetPath(path: PathType, offset: number, join: StrokeJoinType, limit: number, algorithm: OffsetAlgorithm = 'auto'): PathType {
+  if (algorithm === 'auto') {
+    return pickBestResult(path, offset, false, (strategy) => offsetPathWithStrategy(path, offset, join, limit, strategy));
+  }
+  return offsetPathWithStrategy(path, offset, join, limit, getStrategy(algorithm));
+}
+
+function offsetStrokeWithStrategy(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number, strategy: OffsetStrategy): PathType {
   const nonSIPath = getNonSelfItersectionPath(path);
   let result = nonSIPath;
   if (nonSIPath instanceof paper.Path) {
-    result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit);
+    result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit, strategy);
   } else {
     const children = (nonSIPath.children as paper.Path[]).flatMap((c) => {
-      return offsetSimpleStroke(c, offset, join, cap, limit);
+      return offsetSimpleStroke(c, offset, join, cap, limit, strategy);
     });
     result = children.reduce((c1, c2) => c1.unite(c2, { insert: false }) as PathType);
   }
@@ -385,4 +639,11 @@ export function offsetStroke(path: PathType, offset: number, join: StrokeJoinTyp
   result.shadowColor = nonSIPath.shadowColor;
   result.shadowOffset = nonSIPath.shadowOffset;
   return result;
+}
+
+export function offsetStroke(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number, algorithm: OffsetAlgorithm = 'auto'): PathType {
+  if (algorithm === 'auto') {
+    return pickBestResult(path, offset, true, (strategy) => offsetStrokeWithStrategy(path, offset, join, cap, limit, strategy));
+  }
+  return offsetStrokeWithStrategy(path, offset, join, cap, limit, getStrategy(algorithm));
 }

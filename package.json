@@ -18,7 +18,8 @@
     "lint": "npm run typecheck",
     "build": "npm run clean && tsc -p tsconfig.json && node build.js",
     "prepack": "npm run build",
-    "test": "npm run build && node test/smoke.js",
+    "test": "npm run build && node test/smoke.js && node test/stress.js",
+    "test:stress": "npm run build && node test/stress.js",
     "release:check": "npm run lint && npm test && npm audit --registry=https://registry.npmjs.org && npm pack --dry-run",
     "release:publish": "npm run release:check && npm publish"
   },

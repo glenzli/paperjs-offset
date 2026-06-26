@@ -8,6 +8,7 @@ declare global {
     PaperOffset: {
       offset: typeof PaperOffset.offset;
       offsetStroke: typeof PaperOffset.offsetStroke;
+      analyze: typeof PaperOffset.analyze;
     };
   }
 }
@@ -15,4 +16,5 @@ declare global {
 window.PaperOffset = {
   offset: PaperOffset.offset,
   offsetStroke: PaperOffset.offsetStroke,
+  analyze: PaperOffset.analyze,
 };
