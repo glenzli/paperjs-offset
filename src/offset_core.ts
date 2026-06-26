@@ -37,7 +37,6 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number, recursionTime =
   const segment1 = offsetSegment(curve.segment1, curve, hNormal, offset);
   const segment2 = offsetSegment(curve.segment2, curve, hNormal, offset);
   if (recursionTime > MAX_RECURSION_TIME) {
-    console.log('reach maximum recursion times')
     return [segment1, segment2];
   }
   // divide && re-offset
@@ -49,7 +48,8 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number, recursionTime =
     if (Math.abs(midOffset - Math.abs(offset)) > threshold) {
       const subCurve = curve.divideAtTime(0.5);
       if (subCurve != null) {
-        return [...adaptiveOffsetCurve(curve, offset, recursionTime + 1), ...adaptiveOffsetCurve(subCurve, offset, recursionTime + 1)];
+        return adaptiveOffsetCurve(curve, offset, recursionTime + 1)
+          .concat(adaptiveOffsetCurve(subCurve, offset, recursionTime + 1));
       }
     }
   }
@@ -231,7 +231,7 @@ function removeOutsiders(newPath: PathType, path: PathType) {
 function preparePath(path: paper.Path, offset: number): [paper.Path, number] {
   const source = path.clone({ insert: false }) as paper.Path;
   source.reduce({});
-  if (!path.clockwise) {
+  if (path.closed && !path.clockwise) {
     source.reverse();
     offset = -offset;
   }
@@ -280,15 +280,15 @@ function connectSide(outer: PathType, inner: paper.Path, offset: number, cap: St
     case 'round':
       const heads = makeRoundCap(iSegments[iSegments.length - 1], oSegments[0], offset);
       const tails = makeRoundCap(oSegments[oSegments.length - 1], iSegments[0], offset);
-      const result = new paper.Path({ segments: [...heads, ...oSegments, ...tails, ...iSegments], closed: true, insert: false });
+      const result = new paper.Path({ segments: heads.concat(oSegments, tails, iSegments), closed: true, insert: false });
       result.reduce({});
       return result;
-    default: return new paper.Path({ segments: [...oSegments, ...iSegments], closed: true, insert: false });
+    default: return new paper.Path({ segments: oSegments.concat(iSegments), closed: true, insert: false });
   }
 }
 
 function offsetSimpleStroke(path: paper.Path, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number): PathType {
-  offset = path.clockwise ? offset : -offset;
+  offset = path.closed && !path.clockwise ? -offset : offset;
   const positiveOffset = offsetSimpleShape(path, offset, join, limit);
   const negativeOffset = offsetSimpleShape(path, -offset, join, limit);
   if (path.closed) {

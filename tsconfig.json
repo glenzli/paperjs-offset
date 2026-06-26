@@ -2,19 +2,17 @@
   "compilerOptions": {
     "moduleResolution": "node",
     "target": "es5",
-    "module":"es2015",
+    "module": "es2015",
     "lib": ["es2019", "dom"],
     "strict": true,
     "sourceMap": true,
     "declaration": true,
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "declarationDir": "dist/types",
     "outDir": "dist/lib",
-    "typeRoots": [
-      "node_modules/@types"
-    ]
+    "types": [],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src"]
 }

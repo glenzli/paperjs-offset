@@ -1,57 +1,70 @@
-const rollup = require('rollup')
-const resolve = require('rollup-plugin-node-resolve')
-const commonjs = require('rollup-plugin-commonjs')
-const sourceMaps = require('rollup-plugin-sourcemaps')
-const typescript = require('rollup-plugin-typescript2')
-const json = require('rollup-plugin-json')
-const camelCase = require('lodash.camelcase')
-const uglify = require('rollup-plugin-uglify').uglify
-const pkg = require('./package.json')
+const { rollup } = require('rollup');
+const terser = require('@rollup/plugin-terser');
+const pkg = require('./package.json');
 
-const libraryName = 'paperjsOffset'
+const external = ['paper'];
+const globals = { paper: 'paper' };
+const libraryName = 'paperjsOffset';
 
-const defaultPlugins = [
-  json(),
-  typescript({ useTsconfigDeclarationDir: true }),
-  commonjs(),
-  resolve(),
-  sourceMaps(),
-]
+async function writeBundle(input, outputs, plugins = []) {
+  const bundle = await rollup({ input, external, plugins });
 
-let tasks = []
+  try {
+    await Promise.all(outputs.map((output) => bundle.write(output)));
+  } finally {
+    await bundle.close();
+  }
+}
 
-tasks.push(rollup.rollup({
-  input: 'src/index.ts',
-  external: ['paper'],
-  plugins: defaultPlugins
-}).then(bundle => {
-  bundle.write({ format: 'umd', file: pkg.main, name: camelCase(libraryName), sourcemap: true })
-  bundle.write({ format: 'es', file: pkg.module, name: camelCase(libraryName), sourcemap: true })
-}))
+async function build() {
+  await Promise.all([
+    writeBundle('dist/lib/index.js', [
+      {
+        file: pkg.main,
+        format: 'umd',
+        name: libraryName,
+        sourcemap: true,
+        exports: 'named',
+        globals,
+      },
+      {
+        file: pkg.module,
+        format: 'es',
+        sourcemap: true,
+      },
+    ]),
+    writeBundle('dist/lib/bundle.js', [
+      {
+        file: 'dist/paperjs-offset.js',
+        format: 'iife',
+        sourcemap: false,
+        globals,
+      },
+      {
+        file: 'demo/paperjs-offset.js',
+        format: 'iife',
+        sourcemap: false,
+        globals,
+      },
+    ]),
+    writeBundle('dist/lib/bundle.js', [
+      {
+        file: 'dist/paperjs-offset.min.js',
+        format: 'iife',
+        sourcemap: false,
+        globals,
+      },
+      {
+        file: 'demo/paperjs-offset.min.js',
+        format: 'iife',
+        sourcemap: false,
+        globals,
+      },
+    ], [terser()]),
+  ]);
+}
 
-tasks.push(rollup.rollup({
-  input: 'src/bundle.ts',
-  output: [
-    { file: 'dist/paperjs-offset.js', format: 'iife', sourcemap: false },
-  ],
-  external: ['paper'],
-  plugins: defaultPlugins
-}).then(bundle => {
-  bundle.write({ format: 'iife', file: 'dist/paperjs-offset.js', sourcemap: false })
-  bundle.write({ format: 'iife', file: 'demo/paperjs-offset.js', sourcemap: false })
-}))
-
-tasks.push(rollup.rollup({
-  input: 'src/bundle.ts',
-  external: ['paper'],
-  plugins: defaultPlugins.concat([uglify()])
-}).then(bundle => {
-  bundle.write({ format: 'iife', file: 'dist/paperjs-offset.min.js', sourcemap: false })
-  bundle.write({ format: 'iife', file: 'demo/paperjs-offset.min.js', sourcemap: false })
-}))
-
-Promise.all(tasks).then(() => {
-  setTimeout(() => {
-    process.exit()
-  }, 3000)
-})
+build().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

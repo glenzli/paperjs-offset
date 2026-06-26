@@ -8,7 +8,7 @@ declare global {
     PaperOffset: {
       offset: typeof PaperOffset.offset;
       offsetStroke: typeof PaperOffset.offsetStroke;
-    }
+    };
   }
 }
 
