@@ -6,12 +6,12 @@ The dicussion to implement a offset function in paper.js started years ago, yet 
 ## Usage
 For node development, use
 ```sh
-npm install @glenzli/paperjs-offset
+npm install paperjs-offset
 ```
 And then, in you project:
 ```javascript
 import paper from 'paper'
-import { PaperOffset } from '@glenzli/paperjs-offset'
+import { PaperOffset } from 'paperjs-offset'
 
 // call offset
 PaperOffset.offset(path, offset, options)
@@ -22,7 +22,7 @@ PaperOffset.offsetStroke(path, offset, options)
 
 You may still use the old way to extend paperjs module, which is **deprecated** and will be removed in future version.
 ```typescript
-import ExtendPaperJs from '@glenzli/paperjs-offset'
+import ExtendPaperJs from 'paperjs-offset'
 // extend paper.Path, paper.CompoundPath with offset, offsetStroke method
 ExtendPaperJs(paper);
 
@@ -87,8 +87,6 @@ npm version patch
 npm run release:publish
 git push origin master --follow-tags
 ```
-
-The package is published under the `@glenzli` npm scope because the original unscoped `paperjs-offset` npm package is tied to the old npm account. The first publish requires an npm account or organization that controls the `@glenzli` scope.
 
 The GitHub default branch is currently `master`. GitHub's unprotected-branch warning is independent of the branch name: add a repository ruleset for `master` or `main` that blocks deletion and force pushes.
 
