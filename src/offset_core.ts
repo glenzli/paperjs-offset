@@ -41,16 +41,14 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number, recursionTime =
   }
   // divide && re-offset
   const offsetCurve = new paper.Curve(segment1, segment2);
-  // if the offset curve is not self intersected, divide it
-  if (offsetCurve.getIntersections(offsetCurve).length === 0) {
-    const threshold = Math.min(Math.abs(offset) / 10, 1);
-    const midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
-    if (Math.abs(midOffset - Math.abs(offset)) > threshold) {
-      const subCurve = curve.divideAtTime(0.5);
-      if (subCurve != null) {
-        return adaptiveOffsetCurve(curve, offset, recursionTime + 1)
-          .concat(adaptiveOffsetCurve(subCurve, offset, recursionTime + 1));
-      }
+  const offsetCurveIntersections = offsetCurve.getIntersections(offsetCurve);
+  const threshold = Math.min(Math.abs(offset) / 10, 1);
+  const midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
+  if (offsetCurveIntersections.length > 0 || Math.abs(midOffset - Math.abs(offset)) > threshold) {
+    const subCurve = curve.divideAtTime(0.5);
+    if (subCurve != null) {
+      return adaptiveOffsetCurve(curve, offset, recursionTime + 1)
+        .concat(adaptiveOffsetCurve(subCurve, offset, recursionTime + 1));
     }
   }
   return [segment1, segment2];
@@ -87,11 +85,24 @@ function getPointLineIntersections(p1: paper.Point, p2: paper.Point, p3: paper.P
  * Connect two adjacent bezier curve, each curve is represented by two segments,
  * create different types of joins or simply removal redundant segment.
  */
-function connectAdjacentBezier(segments1: paper.Segment[], segments2: paper.Segment[], origin: paper.Segment, joinType: StrokeJoinType, offset: number, limit: number) {
+function isOutsideJoin(origin: paper.Segment, offset: number) {
+  const previousCurve = origin.previous?.curve;
+  const nextCurve = origin.curve;
+  if (!previousCurve || !nextCurve) {
+    return true;
+  }
+  const tangentIn = previousCurve.getTangentAtTime(1);
+  const tangentOut = nextCurve.getTangentAtTime(0);
+  const turn = det(tangentIn, tangentOut);
+  return Math.abs(turn) < 1e-9 || turn * offset > 0;
+}
+
+function connectAdjacentBezier(segments1: paper.Segment[], segments2: paper.Segment[], origin: paper.Segment, joinType: StrokeJoinType, offset: number, limit: number, closed: boolean) {
   const curve1 = new paper.Curve(segments1[0], segments1[1]);
   const curve2 = new paper.Curve(segments2[0], segments2[1]);
   const intersection = curve1.getIntersections(curve2);
   const distance = segments1[1].point.getDistance(segments2[0].point);
+  const shouldJoin = !closed || isOutsideJoin(origin, offset);
   if (origin.isSmooth()) {
     segments2[0].handleOut = segments2[0].handleOut!.project(origin.handleOut!);
     segments2[0].handleIn = segments1[1].handleIn!.project(origin.handleIn!);
@@ -103,18 +114,22 @@ function connectAdjacentBezier(segments1: paper.Segment[], segments2: paper.Segm
         // connect
         switch (joinType) {
           case 'miter':
-            const join = getPointLineIntersections(curve1.point2, curve1.point2.add(curve1.getTangentAtTime(1)),
-              curve2.point1, curve2.point1.add(curve2.getTangentAtTime(0)));
-            // prevent sharp angle
-            const joinOffset = Math.max(join.getDistance(curve1.point2), join.getDistance(curve2.point1));
-            if (joinOffset < Math.abs(offset) * limit) {
-              segments1.push(new paper.Segment(join));
+            if (shouldJoin) {
+              const join = getPointLineIntersections(curve1.point2, curve1.point2.add(curve1.getTangentAtTime(1)),
+                curve2.point1, curve2.point1.add(curve2.getTangentAtTime(0)));
+              // prevent sharp angle
+              const joinOffset = Math.max(join.getDistance(curve1.point2), join.getDistance(curve2.point1));
+              if (joinOffset < Math.abs(offset) * limit) {
+                segments1.push(new paper.Segment(join));
+              }
             }
             break;
           case 'round':
-            const mid = makeRoundJoin(segments1[1], segments2[0], origin.point, offset);
-            if (mid) {
-              segments1.push(mid);
+            if (shouldJoin) {
+              const mid = makeRoundJoin(segments1[1], segments2[0], origin.point, offset);
+              if (mid) {
+                segments1.push(mid);
+              }
             }
             break;
           default: break;
@@ -146,10 +161,10 @@ function connectBeziers(rawSegments: paper.Segment[][], join: StrokeJoinType, so
   const originSegments = source.segments;
   const first = rawSegments[0].slice();
   for (let i = 0; i < rawSegments.length - 1; ++i) {
-    connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit);
+    connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit, source.closed);
   }
   if (source.closed) {
-    connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit);
+    connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit, source.closed);
     rawSegments[0][0] = first[0];
   }
   return rawSegments;

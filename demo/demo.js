@@ -141,7 +141,6 @@
           new paper.Path.Circle({ center: [-4, 48], radius: 46 })
         ];
         var source = makeUnion(circles);
-        source.smooth();
         setStyle(source, sourceStyle);
 
         var expanded = PaperOffset.offset(source, 16, { join: 'round' });

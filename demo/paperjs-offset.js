@@ -36,16 +36,14 @@
         }
         // divide && re-offset
         var offsetCurve = new paper.Curve(segment1, segment2);
-        // if the offset curve is not self intersected, divide it
-        if (offsetCurve.getIntersections(offsetCurve).length === 0) {
-            var threshold = Math.min(Math.abs(offset) / 10, 1);
-            var midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
-            if (Math.abs(midOffset - Math.abs(offset)) > threshold) {
-                var subCurve = curve.divideAtTime(0.5);
-                if (subCurve != null) {
-                    return adaptiveOffsetCurve(curve, offset, recursionTime + 1)
-                        .concat(adaptiveOffsetCurve(subCurve, offset, recursionTime + 1));
-                }
+        var offsetCurveIntersections = offsetCurve.getIntersections(offsetCurve);
+        var threshold = Math.min(Math.abs(offset) / 10, 1);
+        var midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
+        if (offsetCurveIntersections.length > 0 || Math.abs(midOffset - Math.abs(offset)) > threshold) {
+            var subCurve = curve.divideAtTime(0.5);
+            if (subCurve != null) {
+                return adaptiveOffsetCurve(curve, offset, recursionTime + 1)
+                    .concat(adaptiveOffsetCurve(subCurve, offset, recursionTime + 1));
             }
         }
         return [segment1, segment2];
@@ -78,11 +76,24 @@
      * Connect two adjacent bezier curve, each curve is represented by two segments,
      * create different types of joins or simply removal redundant segment.
      */
-    function connectAdjacentBezier(segments1, segments2, origin, joinType, offset, limit) {
+    function isOutsideJoin(origin, offset) {
+        var _a;
+        var previousCurve = (_a = origin.previous) === null || _a === void 0 ? void 0 : _a.curve;
+        var nextCurve = origin.curve;
+        if (!previousCurve || !nextCurve) {
+            return true;
+        }
+        var tangentIn = previousCurve.getTangentAtTime(1);
+        var tangentOut = nextCurve.getTangentAtTime(0);
+        var turn = det(tangentIn, tangentOut);
+        return Math.abs(turn) < 1e-9 || turn * offset > 0;
+    }
+    function connectAdjacentBezier(segments1, segments2, origin, joinType, offset, limit, closed) {
         var curve1 = new paper.Curve(segments1[0], segments1[1]);
         var curve2 = new paper.Curve(segments2[0], segments2[1]);
         var intersection = curve1.getIntersections(curve2);
         var distance = segments1[1].point.getDistance(segments2[0].point);
+        var shouldJoin = !closed || isOutsideJoin(origin, offset);
         if (origin.isSmooth()) {
             segments2[0].handleOut = segments2[0].handleOut.project(origin.handleOut);
             segments2[0].handleIn = segments1[1].handleIn.project(origin.handleIn);
@@ -95,17 +106,21 @@
                     // connect
                     switch (joinType) {
                         case 'miter':
-                            var join = getPointLineIntersections(curve1.point2, curve1.point2.add(curve1.getTangentAtTime(1)), curve2.point1, curve2.point1.add(curve2.getTangentAtTime(0)));
-                            // prevent sharp angle
-                            var joinOffset = Math.max(join.getDistance(curve1.point2), join.getDistance(curve2.point1));
-                            if (joinOffset < Math.abs(offset) * limit) {
-                                segments1.push(new paper.Segment(join));
+                            if (shouldJoin) {
+                                var join = getPointLineIntersections(curve1.point2, curve1.point2.add(curve1.getTangentAtTime(1)), curve2.point1, curve2.point1.add(curve2.getTangentAtTime(0)));
+                                // prevent sharp angle
+                                var joinOffset = Math.max(join.getDistance(curve1.point2), join.getDistance(curve2.point1));
+                                if (joinOffset < Math.abs(offset) * limit) {
+                                    segments1.push(new paper.Segment(join));
+                                }
                             }
                             break;
                         case 'round':
-                            var mid = makeRoundJoin(segments1[1], segments2[0], origin.point, offset);
-                            if (mid) {
-                                segments1.push(mid);
+                            if (shouldJoin) {
+                                var mid = makeRoundJoin(segments1[1], segments2[0], origin.point, offset);
+                                if (mid) {
+                                    segments1.push(mid);
+                                }
                             }
                             break;
                     }
@@ -138,10 +153,10 @@
         var originSegments = source.segments;
         var first = rawSegments[0].slice();
         for (var i = 0; i < rawSegments.length - 1; ++i) {
-            connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit);
+            connectAdjacentBezier(rawSegments[i], rawSegments[i + 1], originSegments[i + 1], join, offset, limit, source.closed);
         }
         if (source.closed) {
-            connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit);
+            connectAdjacentBezier(rawSegments[rawSegments.length - 1], first, originSegments[0], join, offset, limit, source.closed);
             rawSegments[0][0] = first[0];
         }
         return rawSegments;

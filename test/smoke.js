@@ -9,6 +9,15 @@ function approx(actual, expected, tolerance, message) {
   );
 }
 
+function unionAll(paths) {
+  return paths.slice(1).reduce((result, path) => {
+    const next = result.unite(path, { insert: true });
+    result.remove();
+    path.remove();
+    return next;
+  }, paths[0]);
+}
+
 paper.setup(new paper.Size(1200, 900));
 
 {
@@ -77,4 +86,19 @@ paper.setup(new paper.Size(1200, 900));
   assert.strictEqual(result.className, 'Path');
   assert.strictEqual(result.closed, true);
   approx(result.area, 1000 + Math.PI * 25, 0.5, 'near-zero area round stroke area');
+}
+
+{
+  const path = unionAll([
+    new paper.Path.Circle({ center: [180, 260], radius: 50, insert: false }),
+    new paper.Path.Circle({ center: [230, 260], radius: 40, insert: false }),
+    new paper.Path.Circle({ center: [205, 200], radius: 40, insert: false }),
+  ]);
+  path.translate(new paper.Point(-100, -100));
+
+  const result = PaperOffset.offset(path, 24, { insert: false });
+
+  assert.strictEqual(result.className, 'Path');
+  assert.strictEqual(result.closed, true);
+  approx(result.area, 27465.24, 0.5, 'closed concave miter offset area');
 }
