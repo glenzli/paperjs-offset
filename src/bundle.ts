@@ -1,20 +1,20 @@
 import paper from 'paper';
-import ExtendPaperJs, { PaperOffset } from './index';
+import ExtendPaperJs, { analyze, offset, offsetStroke } from './index';
 
 ExtendPaperJs(paper);
 
+const api = {
+  offset,
+  offsetStroke,
+  analyze,
+};
+
 declare global {
   interface Window {
-    PaperOffset: {
-      offset: typeof PaperOffset.offset;
-      offsetStroke: typeof PaperOffset.offsetStroke;
-      analyze: typeof PaperOffset.analyze;
-    };
+    PaperOffset: typeof api;
+    paperjsOffset: typeof api;
   }
 }
 
-window.PaperOffset = {
-  offset: PaperOffset.offset,
-  offsetStroke: PaperOffset.offsetStroke,
-  analyze: PaperOffset.analyze,
-};
+window.PaperOffset = api;
+window.paperjsOffset = api;

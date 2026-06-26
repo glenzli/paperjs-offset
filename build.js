@@ -1,10 +1,15 @@
 const { rollup } = require('rollup');
 const terser = require('@rollup/plugin-terser');
+const { copyFile } = require('fs/promises');
 const pkg = require('./package.json');
 
 const external = ['paper'];
 const globals = { paper: 'paper' };
 const libraryName = 'paperjsOffset';
+const browserBundle = 'dist/paperjs-offset.js';
+const minifiedBrowserBundle = 'dist/paperjs-offset.min.js';
+const demoBrowserBundle = 'demo/paperjs-offset.js';
+const demoMinifiedBrowserBundle = 'demo/paperjs-offset.min.js';
 
 async function writeBundle(input, outputs, plugins = []) {
   const bundle = await rollup({ input, external, plugins });
@@ -16,32 +21,34 @@ async function writeBundle(input, outputs, plugins = []) {
   }
 }
 
-async function build() {
+async function buildLibraryBundles() {
+  await writeBundle('dist/lib/index.js', [
+    {
+      file: pkg.main,
+      format: 'umd',
+      name: libraryName,
+      sourcemap: true,
+      exports: 'named',
+      globals,
+    },
+    {
+      file: pkg.module,
+      format: 'es',
+      sourcemap: true,
+    },
+    {
+      file: 'dist/index.es5.js',
+      format: 'es',
+      sourcemap: true,
+    },
+  ]);
+}
+
+async function buildBrowserBundles() {
   await Promise.all([
-    writeBundle('dist/lib/index.js', [
-      {
-        file: pkg.main,
-        format: 'umd',
-        name: libraryName,
-        sourcemap: true,
-        exports: 'named',
-        globals,
-      },
-      {
-        file: pkg.module,
-        format: 'es',
-        sourcemap: true,
-      },
-    ]),
     writeBundle('dist/lib/bundle.js', [
       {
-        file: 'dist/paperjs-offset.js',
-        format: 'iife',
-        sourcemap: false,
-        globals,
-      },
-      {
-        file: 'demo/paperjs-offset.js',
+        file: browserBundle,
         format: 'iife',
         sourcemap: false,
         globals,
@@ -49,19 +56,25 @@ async function build() {
     ]),
     writeBundle('dist/lib/bundle.js', [
       {
-        file: 'dist/paperjs-offset.min.js',
-        format: 'iife',
-        sourcemap: false,
-        globals,
-      },
-      {
-        file: 'demo/paperjs-offset.min.js',
+        file: minifiedBrowserBundle,
         format: 'iife',
         sourcemap: false,
         globals,
       },
     ], [terser()]),
   ]);
+}
+
+async function syncDemoBundles() {
+  await Promise.all([
+    copyFile(browserBundle, demoBrowserBundle),
+    copyFile(minifiedBrowserBundle, demoMinifiedBrowserBundle),
+  ]);
+}
+
+async function build() {
+  await Promise.all([buildLibraryBundles(), buildBrowserBundles()]);
+  await syncDemoBundles();
 }
 
 build().catch((error) => {

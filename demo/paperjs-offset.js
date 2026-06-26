@@ -588,7 +588,7 @@
         result.shadowOffset = nonSIPath.shadowOffset;
         return result;
     }
-    function offsetStroke(path, offset, join, cap, limit, algorithm) {
+    function offsetStroke$1(path, offset, join, cap, limit, algorithm) {
         if (algorithm === void 0) { algorithm = 'auto'; }
         if (algorithm === 'auto') {
             return pickBestResult(path, offset, true, function (strategy) { return offsetStrokeWithStrategy(path, offset, join, cap, limit, strategy); });
@@ -596,33 +596,35 @@
         return offsetStrokeWithStrategy(path, offset, join, cap, limit, getStrategy(algorithm));
     }
 
+    function insertResult(source, result, options) {
+        if (!options || options.insert !== false) {
+            (source.parent || paper.project.activeLayer).addChild(result);
+        }
+    }
+    function offset(path, distance, options) {
+        var newPath = offsetPath(path, distance, options && options.join || 'miter', options && options.limit || 10, options && options.algorithm || 'auto');
+        insertResult(path, newPath, options);
+        return newPath;
+    }
+    function offsetStroke(path, distance, options) {
+        var newPath = offsetStroke$1(path, distance, options && options.join || 'miter', options && options.cap || 'butt', options && options.limit || 10, options && options.algorithm || 'auto');
+        insertResult(path, newPath, options);
+        return newPath;
+    }
+    function analyze(source, result, distance, options) {
+        return analyzeOffsetQuality(source, result, distance, options || {});
+    }
     var PaperOffset = /** @class */ (function () {
         function PaperOffset() {
         }
-        PaperOffset.offset = function (path, offset, options) {
-            options = options || {};
-            var newPath = offsetPath(path, offset, options.join || 'miter', options.limit || 10, options.algorithm || 'auto');
-            if (options.insert === undefined) {
-                options.insert = true;
-            }
-            if (options.insert) {
-                (path.parent || paper.project.activeLayer).addChild(newPath);
-            }
-            return newPath;
+        PaperOffset.offset = function (path, distance, options) {
+            return offset(path, distance, options);
         };
-        PaperOffset.offsetStroke = function (path, offset, options) {
-            options = options || {};
-            var newPath = offsetStroke(path, offset, options.join || 'miter', options.cap || 'butt', options.limit || 10, options.algorithm || 'auto');
-            if (options.insert === undefined) {
-                options.insert = true;
-            }
-            if (options.insert) {
-                (path.parent || paper.project.activeLayer).addChild(newPath);
-            }
-            return newPath;
+        PaperOffset.offsetStroke = function (path, distance, options) {
+            return offsetStroke(path, distance, options);
         };
-        PaperOffset.analyze = function (source, result, offset, options) {
-            return analyzeOffsetQuality(source, result, offset, options || {});
+        PaperOffset.analyze = function (source, result, distance, options) {
+            return analyze(source, result, distance, options);
         };
         return PaperOffset;
     }());
@@ -645,10 +647,12 @@
     }
 
     ExtendPaperJs(paper);
-    window.PaperOffset = {
-        offset: PaperOffset.offset,
-        offsetStroke: PaperOffset.offsetStroke,
-        analyze: PaperOffset.analyze,
+    var api = {
+        offset: offset,
+        offsetStroke: offsetStroke,
+        analyze: analyze,
     };
+    window.PaperOffset = api;
+    window.paperjsOffset = api;
 
 })(paper);

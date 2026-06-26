@@ -1,6 +1,6 @@
 const assert = require('assert');
 const paper = require('paper');
-const { PaperOffset } = require('../dist/index.umd.js');
+const { PaperOffset, offset, offsetStroke, analyze } = require('../dist/index.umd.js');
 
 function approx(actual, expected, tolerance, message) {
   assert.ok(
@@ -26,10 +26,11 @@ paper.setup(new paper.Size(1200, 900));
     size: [40, 40],
     insert: false,
   });
-  const result = PaperOffset.offset(path, 5, { insert: false });
+  const result = offset(path, 5, { insert: false });
 
   assert.strictEqual(result.className, 'Path');
   approx(result.area, 2500, 0.001, 'rectangle offset area');
+  assert.deepStrictEqual(analyze(path, result, 5).warnings, []);
 }
 
 {
@@ -39,7 +40,7 @@ paper.setup(new paper.Size(1200, 900));
     strokeColor: 'black',
     insert: false,
   });
-  const result = PaperOffset.offsetStroke(path, 5, {
+  const result = offsetStroke(path, 5, {
     insert: false,
     cap: 'round',
   });

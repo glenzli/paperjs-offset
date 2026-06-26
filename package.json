@@ -3,9 +3,25 @@
   "version": "1.0.8",
   "description": "An offset function for paperjs path.",
   "main": "dist/index.umd.js",
-  "module": "dist/index.es5.js",
+  "module": "dist/index.mjs",
   "types": "dist/types/index.d.ts",
   "typings": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.umd.js",
+      "default": "./dist/index.umd.js"
+    },
+    "./dist/index.umd.js": "./dist/index.umd.js",
+    "./dist/index.es5.js": "./dist/index.es5.js",
+    "./dist/index.mjs": "./dist/index.mjs",
+    "./dist/paperjs-offset.js": "./dist/paperjs-offset.js",
+    "./dist/paperjs-offset.min.js": "./dist/paperjs-offset.min.js",
+    "./package.json": "./package.json"
+  },
+  "unpkg": "dist/paperjs-offset.min.js",
+  "jsdelivr": "dist/paperjs-offset.min.js",
   "files": [
     "dist",
     "demo",
@@ -16,18 +32,26 @@
     "clean": "rimraf dist",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "npm run typecheck",
-    "build": "npm run clean && tsc -p tsconfig.json && node build.js",
+    "build": "npm run clean && npm run build:ts && npm run build:bundles",
+    "build:ts": "tsc -p tsconfig.json",
+    "build:bundles": "node build.js",
+    "demo:build": "npm run build",
+    "demo:serve": "npm run demo:build && python3 -m http.server 4173 --directory demo",
     "prepack": "npm run build",
-    "test": "npm run build && node test/smoke.js && node test/stress.js",
-    "test:stress": "npm run build && node test/stress.js",
+    "prepublishOnly": "npm run release:check",
+    "test": "npm run build && npm run test:smoke && npm run test:stress:run",
+    "test:smoke": "node test/smoke.js",
+    "test:stress": "npm run build && npm run test:stress:run",
+    "test:stress:run": "node test/stress.js",
     "release:check": "npm run lint && npm test && npm audit --registry=https://registry.npmjs.org && npm pack --dry-run",
-    "release:publish": "npm run release:check && npm publish"
+    "release:publish": "npm publish"
   },
-  "dependencies": {
+  "peerDependencies": {
     "paper": "^0.12.18"
   },
   "devDependencies": {
     "@rollup/plugin-terser": "^1.0.0",
+    "paper": "^0.12.18",
     "rimraf": "^6.0.0",
     "rollup": "^4.0.0",
     "typescript": "^5.0.0"
