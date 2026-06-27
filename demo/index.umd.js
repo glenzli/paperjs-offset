@@ -1,5 +1,8 @@
-(function (paper) {
-    'use strict';
+(function (global, factory) {
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('paper')) :
+    typeof define === 'function' && define.amd ? define(['exports', 'paper'], factory) :
+    (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.paperjsOffset = {}, global.paper));
+})(this, (function (exports, paper) { 'use strict';
 
     var MAX_RECURSION_TIME = 20;
     var STRATEGIES = [
@@ -725,6 +728,20 @@
     function analyze(source, result, distance, options) {
         return analyzeOffsetQuality(source, result, distance, options || {});
     }
+    var PaperOffset = /** @class */ (function () {
+        function PaperOffset() {
+        }
+        PaperOffset.offset = function (path, distance, options) {
+            return offset(path, distance, options);
+        };
+        PaperOffset.offsetStroke = function (path, distance, options) {
+            return offsetStroke(path, distance, options);
+        };
+        PaperOffset.analyze = function (source, result, distance, options) {
+            return analyze(source, result, distance, options);
+        };
+        return PaperOffset;
+    }());
     /**
      * @deprecated EXTEND existing paper module is not recommend anymore
      */
@@ -743,13 +760,22 @@
         };
     }
 
-    ExtendPaperJs(paper);
-    var api = {
-        offset: offset,
-        offsetStroke: offsetStroke,
-        analyze: analyze,
-    };
-    window.PaperOffset = api;
-    window.paperjsOffset = api;
+    exports.PaperOffset = PaperOffset;
+    exports.analyze = analyze;
+    exports.default = ExtendPaperJs;
+    exports.extendPaperJs = ExtendPaperJs;
+    exports.offset = offset;
+    exports.offsetStroke = offsetStroke;
 
-})(paper);
+    Object.defineProperty(exports, '__esModule', { value: true });
+
+}));
+
+;(function(global) {
+  if (!global || !global.paperjsOffset) return;
+  global.PaperOffset = global.paperjsOffset;
+  if (global.paper && typeof global.paperjsOffset.default === 'function') {
+    global.paperjsOffset.default(global.paper);
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : this);
+//# sourceMappingURL=index.umd.js.map

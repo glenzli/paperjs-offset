@@ -6,10 +6,20 @@ const pkg = require('./package.json');
 const external = ['paper'];
 const globals = { paper: 'paper' };
 const libraryName = 'paperjsOffset';
-const browserBundle = 'dist/paperjs-offset.js';
-const minifiedBrowserBundle = 'dist/paperjs-offset.min.js';
-const demoBrowserBundle = 'demo/paperjs-offset.js';
-const demoMinifiedBrowserBundle = 'demo/paperjs-offset.min.js';
+const umdBundle = 'dist/index.umd.js';
+const minifiedUmdBundle = 'dist/index.umd.min.js';
+const demoBrowserBundle = 'demo/index.umd.js';
+const demoBrowserBundleMap = 'demo/index.umd.js.map';
+const demoMinifiedBrowserBundle = 'demo/index.umd.min.js';
+const browserCompatibilityFooter = `
+;(function(global) {
+  if (!global || !global.paperjsOffset) return;
+  global.PaperOffset = global.paperjsOffset;
+  if (global.paper && typeof global.paperjsOffset.default === 'function') {
+    global.paperjsOffset.default(global.paper);
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : this);
+`;
 
 async function writeBundle(input, outputs, plugins = []) {
   const bundle = await rollup({ input, external, plugins });
@@ -22,22 +32,24 @@ async function writeBundle(input, outputs, plugins = []) {
 }
 
 async function buildLibraryBundles() {
-  await writeBundle('dist/lib/index.js', [
+  await writeBundle('.build/lib/index.js', [
     {
-      file: pkg.main,
+      file: 'dist/index.cjs',
+      format: 'cjs',
+      sourcemap: true,
+      exports: 'named',
+    },
+    {
+      file: umdBundle,
       format: 'umd',
       name: libraryName,
       sourcemap: true,
       exports: 'named',
       globals,
+      footer: browserCompatibilityFooter,
     },
     {
       file: pkg.module,
-      format: 'es',
-      sourcemap: true,
-    },
-    {
-      file: 'dist/index.es5.js',
       format: 'es',
       sourcemap: true,
     },
@@ -45,30 +57,24 @@ async function buildLibraryBundles() {
 }
 
 async function buildBrowserBundles() {
-  await Promise.all([
-    writeBundle('dist/lib/bundle.js', [
-      {
-        file: browserBundle,
-        format: 'iife',
-        sourcemap: false,
-        globals,
-      },
-    ]),
-    writeBundle('dist/lib/bundle.js', [
-      {
-        file: minifiedBrowserBundle,
-        format: 'iife',
-        sourcemap: false,
-        globals,
-      },
-    ], [terser()]),
-  ]);
+  await writeBundle('.build/lib/index.js', [
+    {
+      file: minifiedUmdBundle,
+      format: 'umd',
+      name: libraryName,
+      sourcemap: false,
+      exports: 'named',
+      globals,
+      footer: browserCompatibilityFooter,
+    },
+  ], [terser()]);
 }
 
 async function syncDemoBundles() {
   await Promise.all([
-    copyFile(browserBundle, demoBrowserBundle),
-    copyFile(minifiedBrowserBundle, demoMinifiedBrowserBundle),
+    copyFile(umdBundle, demoBrowserBundle),
+    copyFile(`${umdBundle}.map`, demoBrowserBundleMap),
+    copyFile(minifiedUmdBundle, demoMinifiedBrowserBundle),
   ]);
 }
 

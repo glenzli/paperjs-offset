@@ -9,7 +9,7 @@
     "declaration": true,
     "allowSyntheticDefaultImports": true,
     "declarationDir": "dist/types",
-    "outDir": "dist/lib",
+    "outDir": ".build/lib",
     "types": [],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true

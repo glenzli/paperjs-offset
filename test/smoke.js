@@ -1,6 +1,6 @@
 const assert = require('assert');
 const paper = require('paper');
-const { PaperOffset, offset, offsetStroke, analyze } = require('../dist/index.umd.js');
+const { PaperOffset, offset, offsetStroke, analyze } = require('../dist/index.cjs');
 
 function approx(actual, expected, tolerance, message) {
   assert.ok(

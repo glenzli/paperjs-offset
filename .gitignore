@@ -2,6 +2,8 @@
 node_modules/
 
 # Build output
+.build/
+.pages/
 dist/
 compiled/
 

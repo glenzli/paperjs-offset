@@ -2,34 +2,30 @@
   "name": "paperjs-offset",
   "version": "1.0.8",
   "description": "An offset function for paperjs path.",
-  "main": "dist/index.umd.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/types/index.d.ts",
-  "typings": "dist/types/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.umd.js",
-      "default": "./dist/index.umd.js"
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
     },
+    "./dist/index.cjs": "./dist/index.cjs",
     "./dist/index.umd.js": "./dist/index.umd.js",
-    "./dist/index.es5.js": "./dist/index.es5.js",
+    "./dist/index.umd.min.js": "./dist/index.umd.min.js",
     "./dist/index.mjs": "./dist/index.mjs",
-    "./dist/paperjs-offset.js": "./dist/paperjs-offset.js",
-    "./dist/paperjs-offset.min.js": "./dist/paperjs-offset.min.js",
     "./package.json": "./package.json"
   },
-  "unpkg": "dist/paperjs-offset.min.js",
-  "jsdelivr": "dist/paperjs-offset.min.js",
+  "browser": "dist/index.umd.min.js",
+  "unpkg": "dist/index.umd.min.js",
+  "jsdelivr": "dist/index.umd.min.js",
   "files": [
-    "dist",
-    "demo",
-    "public",
-    "src"
+    "dist"
   ],
   "scripts": {
-    "clean": "rimraf dist",
+    "clean": "rimraf dist .build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "npm run typecheck",
     "build": "npm run clean && npm run build:ts && npm run build:bundles",
@@ -37,6 +33,7 @@
     "build:bundles": "node build.js",
     "demo:build": "npm run build",
     "demo:serve": "npm run demo:build && node demo/serve.js",
+    "pages:build": "npm run build && node scripts/build-pages.js",
     "prepack": "npm run build",
     "prepublishOnly": "npm run release:check",
     "test": "npm run build && npm run test:smoke && npm run test:stress:run",
@@ -45,7 +42,12 @@
     "test:stress:quick": "npm run build && node test/stress.js --groups=closed-offset,smooth-offset,compound-offset,stroke-offset,edge-case",
     "test:stress:boundary": "npm run build && node test/stress.js --groups=boundary-offset,boundary-compound,boundary-stroke",
     "test:stress:run": "node test/stress.js",
-    "release:check": "npm run lint && npm test && npm audit --registry=https://registry.npmjs.org && npm pack --dry-run",
+    "release:check": "npm run lint && npm test && npm audit --registry=https://registry.npmjs.org && npm pack --dry-run --ignore-scripts",
+    "release:prepare": "node scripts/prepare-release.js",
+    "release:major": "npm run release:prepare -- major",
+    "release:minor": "npm run release:prepare -- minor",
+    "release:patch": "npm run release:prepare -- patch",
+    "release:ship": "node scripts/ship-release.js",
     "release:publish": "npm publish"
   },
   "devDependencies": {

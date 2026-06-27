@@ -1,6 +1,6 @@
 # paperjs-offset
 
-[![paperjs-offset preview](public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
+[![paperjs-offset preview](https://raw.githubusercontent.com/glenzli/paperjs-offset/master/public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
 
 Language: [English](#english) | [中文](#中文)
 
@@ -250,6 +250,15 @@ npm run demo:serve
 
 根目录 `index.html` 会重定向到 `demo/index.html`。`npm run build` 会将浏览器 bundle 写入 `dist/`，并同步生成文件到 `demo/`，因此本地 demo 和发布产物使用的是同一套构建结果。
 
+线上 demo 由 GitHub Pages 部署。仓库需要在 GitHub 的 Settings -> Pages 中把 Source 设为 GitHub Actions；之后 `.github/workflows/pages.yml` 会在 `master` 分支推送或手动触发时运行：
+
+```sh
+npm ci
+npm run pages:build
+```
+
+`pages:build` 会重新构建包，并把 `index.html`、`demo/` 和 `public/` 复制到 `.pages/`。GitHub Pages workflow 只部署 demo 站点，不负责 npm 发布。
+
 ### 兼容 API
 
 旧入口仍然可用，但新代码应优先使用上面的命名函数。
@@ -318,16 +327,23 @@ npm run build:bundles
 
 ### 发布
 
-发布流程刻意保持在本地执行；当前没有 GitHub Action 自动发布到 npm。
+发布流程刻意保持在本地触发；当前没有 GitHub Action 自动发布到 npm。准备发大版本时，先提交普通代码改动，然后运行：
 
 ```sh
-npm version patch
-npm run release:check
-npm run release:publish
-git push origin master --follow-tags
+npm run release:major
 ```
 
-`release:check` 会运行 typecheck、测试、`npm audit` 和 `npm pack --dry-run --ignore-scripts`。`npm test` 已经先完成构建，因此 pack 校验不依赖 npm lifecycle。`release:publish` 交给 `npm publish`；直接 publish 时，`prepublishOnly` 也会运行同一套 release check。
+也可以用 `npm run release:minor` 或 `npm run release:patch`。`release:prepare` 要求 git 工作区干净，会更新 `package.json` 和 `package-lock.json`、运行 `release:check`、提交 `chore: release vX.Y.Z`，并创建 `vX.Y.Z` tag。
+
+确认版本提交和 tag 无误后，再执行真正的发布：
+
+```sh
+npm run release:ship
+```
+
+`release:ship` 要求当前提交带有匹配当前版本号的 tag，会先检查 `npm whoami` 和 `gh auth status`，再重新运行 `release:check`，然后 `git push origin HEAD --follow-tags`、`npm publish`，最后通过 GitHub CLI 执行 `gh release create --generate-notes`。如果 npm 发布需要 2FA，可以运行 `npm run release:ship -- --otp=123456`。
+
+`release:check` 会运行 typecheck、测试、`npm audit` 和 `npm pack --dry-run --ignore-scripts`。`npm test` 已经先完成构建，因此 pack 校验不依赖 npm lifecycle。直接执行 `npm publish` 时，`prepublishOnly` 也会运行同一套 release check。
 
 ### 许可证
 
@@ -581,6 +597,15 @@ npm run demo:serve
 
 The root `index.html` redirects to `demo/index.html`. `npm run build` writes browser bundles to `dist/` and syncs the generated files into `demo/`, so local demos and published artifacts exercise the same build.
 
+The live demo is deployed with GitHub Pages. Set the repository Pages source to GitHub Actions in GitHub Settings -> Pages; after that, `.github/workflows/pages.yml` runs on pushes to `master` and on manual dispatch:
+
+```sh
+npm ci
+npm run pages:build
+```
+
+`pages:build` rebuilds the package and copies `index.html`, `demo/`, and `public/` into `.pages/`. The Pages workflow only deploys the demo site; it does not publish to npm.
+
 ### Compatibility API
 
 Older entry points still exist, but new code should prefer the named functions above.
@@ -649,16 +674,23 @@ npm run build:bundles
 
 ### Release
 
-Publishing is intentionally local. There is no GitHub Action that publishes to npm.
+Publishing is intentionally triggered locally. There is no GitHub Action that publishes to npm. For a major release, commit normal code changes first, then run:
 
 ```sh
-npm version patch
-npm run release:check
-npm run release:publish
-git push origin master --follow-tags
+npm run release:major
 ```
 
-`release:check` runs typecheck, tests, `npm audit`, and `npm pack --dry-run --ignore-scripts`. `npm test` builds first, so the pack check does not depend on npm lifecycle scripts. `release:publish` delegates to `npm publish`; `prepublishOnly` runs the same release check for direct publishes.
+Use `npm run release:minor` or `npm run release:patch` for smaller releases. `release:prepare` requires a clean git worktree, updates `package.json` and `package-lock.json`, runs `release:check`, commits `chore: release vX.Y.Z`, and creates the `vX.Y.Z` tag.
+
+After verifying the version commit and tag, ship the release:
+
+```sh
+npm run release:ship
+```
+
+`release:ship` requires the current commit to have the tag matching the current package version. It checks `npm whoami` and `gh auth status`, reruns `release:check`, then runs `git push origin HEAD --follow-tags`, `npm publish`, and `gh release create --generate-notes` through the GitHub CLI. If npm publish requires 2FA, run `npm run release:ship -- --otp=123456`.
+
+`release:check` runs typecheck, tests, `npm audit`, and `npm pack --dry-run --ignore-scripts`. `npm test` builds first, so the pack check does not depend on npm lifecycle scripts. Direct `npm publish` also runs the same release check through `prepublishOnly`.
 
 ### License
 
