@@ -55,16 +55,16 @@
     "rollup": "4.62.2",
     "typescript": "5.9.3"
   },
-  "author": "g4i",
+  "author": "glenzli",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/g4i/paperjs-offset.git"
+    "url": "git+https://github.com/glenzli/paperjs-offset.git"
   },
   "bugs": {
-    "url": "https://github.com/g4i/paperjs-offset/issues"
+    "url": "https://github.com/glenzli/paperjs-offset/issues"
   },
-  "homepage": "https://g4i.github.io/paperjs-offset/",
+  "homepage": "https://glenzli.github.io/paperjs-offset/",
   "keywords": [
     "paperjs",
     "offset"
