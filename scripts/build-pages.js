@@ -3,6 +3,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, '.pages');
+const paperBundlePath = path.join(root, 'node_modules', 'paper', 'dist', 'paper-full.min.js');
 
 async function copyIfPresent(source, target) {
   try {
@@ -45,6 +46,8 @@ async function buildPages() {
   await fs.copyFile(path.join(root, 'index.html'), path.join(output, 'index.html'));
   await copyDirectory(path.join(root, 'demo'), path.join(output, 'demo'));
   await copyDirectory(path.join(root, 'public'), path.join(output, 'public'));
+  await fs.mkdir(path.join(output, 'demo', 'vendor'), { recursive: true });
+  await fs.copyFile(paperBundlePath, path.join(output, 'demo', 'vendor', 'paper-full.min.js'));
   await copyIfPresent(path.join(root, 'CNAME'), path.join(output, 'CNAME'));
 
   console.log(`Built GitHub Pages site in ${path.relative(root, output)}/`);

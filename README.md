@@ -257,7 +257,7 @@ npm ci
 npm run pages:build
 ```
 
-`pages:build` 会重新构建包，并把 `index.html`、`demo/` 和 `public/` 复制到 `.pages/`。GitHub Pages workflow 只部署 demo 站点，不负责 npm 发布。
+`pages:build` 会重新构建包，把 `index.html`、`demo/` 和 `public/` 复制到 `.pages/`，并把锁定版本的 Paper.js 复制到 `.pages/demo/vendor/`。GitHub Pages workflow 只部署 demo 站点，不负责 npm 发布。
 
 ### 兼容 API
 
@@ -604,7 +604,7 @@ npm ci
 npm run pages:build
 ```
 
-`pages:build` rebuilds the package and copies `index.html`, `demo/`, and `public/` into `.pages/`. The Pages workflow only deploys the demo site; it does not publish to npm.
+`pages:build` rebuilds the package, copies `index.html`, `demo/`, and `public/` into `.pages/`, and copies the locked Paper.js build into `.pages/demo/vendor/`. The Pages workflow only deploys the demo site; it does not publish to npm.
 
 ### Compatibility API
 

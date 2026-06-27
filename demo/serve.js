@@ -3,10 +3,11 @@ const http = require('http');
 const path = require('path');
 
 const root = __dirname;
-const hostname = 'localhost';
+const hostname = '127.0.0.1';
+const displayHostname = 'localhost';
 const port = 4173;
 const paperBundlePath = path.join(root, '..', 'node_modules', 'paper', 'dist', 'paper-full.min.js');
-const paperBundleUrl = '/node_modules/paper/dist/paper-full.min.js';
+const paperBundleUrl = '/vendor/paper-full.min.js';
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -61,5 +62,5 @@ const server = http.createServer((request, response) => {
 });
 
 server.listen(port, hostname, () => {
-  console.log(`Serving demo at http://${hostname}:${port}/`);
+  console.log(`Serving demo at http://${displayHostname}:${port}/`);
 });
