@@ -2,7 +2,7 @@ import paper from 'paper';
 
 export type StrokeJoinType = 'miter' | 'bevel' | 'round';
 export type StrokeCapType = 'round' | 'butt';
-export type OffsetAlgorithm = 'auto' | 'legacy' | 'split' | 'robust';
+export type OffsetAlgorithm = 'auto' | 'adaptive' | 'legacy' | 'split' | 'robust';
 export type PathType = paper.Path | paper.CompoundPath;
 const MAX_RECURSION_TIME = 20;
 type HandleType = 'handleIn' | 'handleOut';
@@ -12,6 +12,7 @@ interface OffsetStrategy {
   splitSelfIntersectingCurves: boolean;
   guardInsideJoins: boolean;
   simplifySelfIntersectingStroke: boolean;
+  adaptiveFallback: boolean;
 }
 
 export interface OffsetQuality {
@@ -31,22 +32,32 @@ export interface OffsetQualityOptions {
 
 const STRATEGIES: OffsetStrategy[] = [
   {
+    algorithm: 'adaptive',
+    splitSelfIntersectingCurves: true,
+    guardInsideJoins: true,
+    simplifySelfIntersectingStroke: true,
+    adaptiveFallback: true,
+  },
+  {
     algorithm: 'robust',
     splitSelfIntersectingCurves: true,
     guardInsideJoins: true,
     simplifySelfIntersectingStroke: true,
+    adaptiveFallback: false,
   },
   {
     algorithm: 'split',
     splitSelfIntersectingCurves: true,
     guardInsideJoins: false,
     simplifySelfIntersectingStroke: false,
+    adaptiveFallback: false,
   },
   {
     algorithm: 'legacy',
     splitSelfIntersectingCurves: false,
     guardInsideJoins: false,
     simplifySelfIntersectingStroke: false,
+    adaptiveFallback: false,
   },
 ];
 
@@ -505,6 +516,22 @@ export function analyzeOffsetQuality(source: PathType, result: PathType, offset:
       score += ((area - sourceArea) / sourceArea) * 2000;
       addWarning(warnings, 'negative-offset-area-grew');
     }
+    if (sourceArea > 0 && offset < 0) {
+      const areaRatio = area / sourceArea;
+      if (areaRatio < 0.25) {
+        score += (0.25 - areaRatio) * 4000;
+        addWarning(warnings, 'negative-offset-collapse');
+      }
+    }
+    if (sourceArea > 0 && offset > 0) {
+      const sourceBounds = source.bounds;
+      const centerShift = result.bounds.center.getDistance(sourceBounds.center);
+      const centerTolerance = Math.max(absOffset * 1.15, Math.min(sourceBounds.width, sourceBounds.height) * 0.08);
+      if (centerShift > centerTolerance) {
+        score += (centerShift - centerTolerance) * 80;
+        addWarning(warnings, 'offset-center-shift');
+      }
+    }
 
     const containmentTolerance = Math.max(absOffset * 0.08, 0.5);
     const containmentSamples = offset >= 0 ? samplePoints(source) : samplePoints(result);
@@ -580,7 +607,68 @@ function getNonSelfIntersectionPath(path: PathType) {
   return path;
 }
 
+function withoutAdaptiveFallback(strategy: OffsetStrategy): OffsetStrategy {
+  return {
+    algorithm: 'robust',
+    splitSelfIntersectingCurves: strategy.splitSelfIntersectingCurves,
+    guardInsideJoins: strategy.guardInsideJoins,
+    simplifySelfIntersectingStroke: strategy.simplifySelfIntersectingStroke,
+    adaptiveFallback: false,
+  };
+}
+
+function addAdaptiveCandidate(candidates: PathType[], makeResult: () => PathType) {
+  try {
+    candidates.push(makeResult());
+  } catch (error) {
+    // Keep adaptive mode opportunistic: a failed fallback should not hide valid strict results.
+  }
+}
+
+function pickBestCandidate(source: PathType, offset: number, stroke: boolean, candidates: PathType[]) {
+  let bestResult = candidates[0];
+  let bestQuality = analyzeOffsetQuality(source, bestResult, offset, { stroke });
+  for (let i = 1; i < candidates.length; i += 1) {
+    const quality = analyzeOffsetQuality(source, candidates[i], offset, { stroke });
+    if (quality.score < bestQuality.score) {
+      bestResult = candidates[i];
+      bestQuality = quality;
+    }
+  }
+  return bestResult;
+}
+
+function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy) {
+  const baseStrategy = withoutAdaptiveFallback(strategy);
+  const candidates = new Array<PathType>();
+  addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, offset, join, limit, baseStrategy));
+
+  if (join !== 'round') {
+    addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, offset, 'round', limit, baseStrategy));
+  }
+
+  if (path.closed && offset < 0) {
+    [0.8, 0.65, 0.5].forEach((factor) => {
+      const fallbackOffset = offset * factor;
+      addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, fallbackOffset, join, limit, baseStrategy));
+      if (join !== 'round') {
+        addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, fallbackOffset, 'round', limit, baseStrategy));
+      }
+    });
+  }
+
+  if (candidates.length === 0) {
+    return offsetPathWithStrategy(path, offset, join, limit, baseStrategy);
+  }
+
+  return pickBestCandidate(path, offset, false, candidates);
+}
+
 function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {
+  if (strategy.adaptiveFallback) {
+    return offsetPathAdaptive(path, offset, join, limit, strategy);
+  }
+
   const nonSIPath = getNonSelfIntersectionPath(path);
   let result = nonSIPath;
   if (nonSIPath instanceof paper.Path) {
@@ -623,6 +711,10 @@ export function offsetPath(path: PathType, offset: number, join: StrokeJoinType,
 }
 
 function offsetStrokeWithStrategy(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number, strategy: OffsetStrategy): PathType {
+  if (strategy.adaptiveFallback) {
+    return offsetStrokeAdaptive(path, offset, join, cap, limit, strategy);
+  }
+
   const nonSIPath = getNonSelfIntersectionPath(path);
   let result = nonSIPath;
   if (nonSIPath instanceof paper.Path) {
@@ -639,6 +731,30 @@ function offsetStrokeWithStrategy(path: PathType, offset: number, join: StrokeJo
   result.shadowColor = nonSIPath.shadowColor;
   result.shadowOffset = nonSIPath.shadowOffset;
   return result;
+}
+
+function offsetStrokeAdaptive(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number, strategy: OffsetStrategy) {
+  const baseStrategy = withoutAdaptiveFallback(strategy);
+  const candidates = new Array<PathType>();
+  addAdaptiveCandidate(candidates, () => offsetStrokeWithStrategy(path, offset, join, cap, limit, baseStrategy));
+
+  if (join !== 'round') {
+    addAdaptiveCandidate(candidates, () => offsetStrokeWithStrategy(path, offset, 'round', cap, limit, baseStrategy));
+  }
+
+  if (cap !== 'round') {
+    addAdaptiveCandidate(candidates, () => offsetStrokeWithStrategy(path, offset, join, 'round', limit, baseStrategy));
+  }
+
+  if (join !== 'round' && cap !== 'round') {
+    addAdaptiveCandidate(candidates, () => offsetStrokeWithStrategy(path, offset, 'round', 'round', limit, baseStrategy));
+  }
+
+  if (candidates.length === 0) {
+    return offsetStrokeWithStrategy(path, offset, join, cap, limit, baseStrategy);
+  }
+
+  return pickBestCandidate(path, offset, true, candidates);
 }
 
 export function offsetStroke(path: PathType, offset: number, join: StrokeJoinType, cap: StrokeCapType, limit: number, algorithm: OffsetAlgorithm = 'auto'): PathType {

@@ -20,17 +20,6 @@
     return new paper.Path({ segments: segments, closed: true, insert: false });
   }
 
-  function makeStarRadii(points, outerRadius, innerRadius, seed) {
-    var radii = [];
-    for (var i = 0; i < points * 2; i += 1) {
-      var wobble = Math.sin(seed * 1.91 + i * 0.73);
-      radii.push(i % 2 === 0
-        ? outerRadius + wobble * 2
-        : innerRadius + wobble * 1.5);
-    }
-    return radii;
-  }
-
   function makeSmoothPolygon(center, radii, rotation) {
     var path = makePolygon(center, radii, rotation);
     path.smooth({ type: 'continuous' });
@@ -83,30 +72,19 @@
   function createStressCases() {
     var cases = [];
     var rotations = [0, 0.17, 0.39, 0.61];
-    var starConfigs = [
-      { points: 5, outer: 58, inner: 31, out: 10, inward: -5, outJoin: 'round', inJoin: 'round' },
-      { points: 6, outer: 60, inner: 34, out: 11, inward: -6, outJoin: 'round', inJoin: 'bevel' },
-      { points: 7, outer: 62, inner: 36, out: 12, inward: -6, outJoin: 'round', inJoin: 'round' },
-      { points: 8, outer: 64, inner: 38, out: 10, inward: -7, outJoin: 'round', inJoin: 'bevel' },
-      { points: 9, outer: 66, inner: 40, out: 11, inward: -6, outJoin: 'miter', inJoin: 'round' },
-      { points: 10, outer: 68, inner: 42, out: 12, inward: -7, outJoin: 'round', inJoin: 'round' },
-      { points: 5, outer: 70, inner: 36, out: 11, inward: -6, outJoin: 'round', inJoin: 'bevel' },
-      { points: 6, outer: 72, inner: 39, out: 12, inward: -7, outJoin: 'miter', inJoin: 'round' },
-      { points: 7, outer: 74, inner: 42, out: 13, inward: -7, outJoin: 'round', inJoin: 'round' },
-      { points: 8, outer: 72, inner: 43, out: 10, inward: -6, outJoin: 'round', inJoin: 'bevel' },
-      { points: 9, outer: 74, inner: 45, out: 11, inward: -6, outJoin: 'round', inJoin: 'round' },
-      { points: 10, outer: 76, inner: 46, out: 12, inward: -7, outJoin: 'round', inJoin: 'round' }
-    ];
 
-    for (var i = 0; i < starConfigs.length; i += 1) {
+    for (var i = 0; i < 12; i += 1) {
       (function(index) {
-        var config = starConfigs[index];
-        var radii = makeStarRadii(config.points, config.outer, config.inner, index);
+        var points = 5 + index % 7;
+        var radii = [];
+        for (var j = 0; j < points * 2; j += 1) {
+          radii.push(j % 2 === 0 ? 58 + index * 2 : 15 + (index * 7 + j * 3) % 22);
+        }
         add(cases, 'star-positive-' + index, 'Star outward ' + index, 'closed-offset',
-          'offset', config.out, { join: config.outJoin, limit: 4 },
+          'offset', 10 + index % 5, { join: index % 3 === 0 ? 'miter' : 'round', limit: 4 },
           function() { return makePolygon([0, 0], radii, rotations[index % rotations.length]); });
         add(cases, 'star-negative-' + index, 'Star inward ' + index, 'closed-offset',
-          'offset', config.inward, { join: config.inJoin, limit: 4 },
+          'offset', -(7 + index % 6), { join: index % 2 === 0 ? 'round' : 'bevel', limit: 4 },
           function() { return makePolygon([0, 0], radii, rotations[(index + 1) % rotations.length]); });
       })(i);
     }

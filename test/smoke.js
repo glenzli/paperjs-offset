@@ -18,6 +18,27 @@ function unionAll(paths) {
   }, paths[0]);
 }
 
+function point(cx, cy, radius, angle) {
+  return [
+    cx + Math.cos(angle) * radius,
+    cy + Math.sin(angle) * radius,
+  ];
+}
+
+function makeLegacyStressStar(index, positive) {
+  const points = 5 + index % 7;
+  const radii = [];
+  const rotations = [0, 0.17, 0.39, 0.61];
+  for (let j = 0; j < points * 2; j += 1) {
+    radii.push(j % 2 === 0 ? 58 + index * 2 : 15 + (index * 7 + j * 3) % 22);
+  }
+  return new paper.Path({
+    segments: radii.map((radius, i) => point(0, 0, radius, rotations[(index + (positive ? 0 : 1)) % rotations.length] + Math.PI * 2 * i / radii.length)),
+    closed: true,
+    insert: false,
+  });
+}
+
 paper.setup(new paper.Size(1200, 900));
 
 {
@@ -118,4 +139,50 @@ paper.setup(new paper.Size(1200, 900));
   approx(legacy.area, 27427.13, 0.5, 'legacy concave miter offset area');
   approx(robust.area, 27465.24, 0.5, 'robust concave miter offset area');
   approx(result.area, 27465.24, 0.5, 'closed concave miter offset area');
+}
+
+{
+  const legacySource = makeLegacyStressStar(9, true);
+  const autoSource = makeLegacyStressStar(9, true);
+  const legacy = offset(legacySource, 14, {
+    insert: false,
+    join: 'miter',
+    limit: 4,
+    algorithm: 'robust',
+  });
+  const result = offset(autoSource, 14, {
+    insert: false,
+    join: 'miter',
+    limit: 4,
+    algorithm: 'auto',
+  });
+  const legacyQuality = analyze(legacySource, legacy, 14);
+  const resultQuality = analyze(autoSource, result, 14);
+
+  assert.ok(legacyQuality.warnings.includes('offset-center-shift'), 'strict miter star should report center shift');
+  assert.strictEqual(resultQuality.warnings.includes('offset-center-shift'), false);
+  assert.ok(resultQuality.score < legacyQuality.score, 'auto should avoid miter spike center shift');
+}
+
+{
+  const legacySource = makeLegacyStressStar(10, false);
+  const autoSource = makeLegacyStressStar(10, false);
+  const legacy = offset(legacySource, -11, {
+    insert: false,
+    join: 'round',
+    limit: 4,
+    algorithm: 'robust',
+  });
+  const result = offset(autoSource, -11, {
+    insert: false,
+    join: 'round',
+    limit: 4,
+    algorithm: 'auto',
+  });
+  const legacyQuality = analyze(legacySource, legacy, -11);
+  const resultQuality = analyze(autoSource, result, -11);
+
+  assert.ok(legacyQuality.warnings.includes('negative-offset-collapse'), 'strict inward star should report collapse');
+  assert.strictEqual(resultQuality.warnings.includes('negative-offset-collapse'), false);
+  assert.ok(resultQuality.score < legacyQuality.score, 'auto should avoid aggressive inward collapse');
 }

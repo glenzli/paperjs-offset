@@ -4,22 +4,32 @@
     var MAX_RECURSION_TIME = 20;
     var STRATEGIES = [
         {
+            algorithm: 'adaptive',
+            splitSelfIntersectingCurves: true,
+            guardInsideJoins: true,
+            simplifySelfIntersectingStroke: true,
+            adaptiveFallback: true,
+        },
+        {
             algorithm: 'robust',
             splitSelfIntersectingCurves: true,
             guardInsideJoins: true,
             simplifySelfIntersectingStroke: true,
+            adaptiveFallback: false,
         },
         {
             algorithm: 'split',
             splitSelfIntersectingCurves: true,
             guardInsideJoins: false,
             simplifySelfIntersectingStroke: false,
+            adaptiveFallback: false,
         },
         {
             algorithm: 'legacy',
             splitSelfIntersectingCurves: false,
             guardInsideJoins: false,
             simplifySelfIntersectingStroke: false,
+            adaptiveFallback: false,
         },
     ];
     function getStrategy(algorithm) {
@@ -458,6 +468,22 @@
                 score += ((area - sourceArea) / sourceArea) * 2000;
                 addWarning(warnings, 'negative-offset-area-grew');
             }
+            if (sourceArea > 0 && offset < 0) {
+                var areaRatio = area / sourceArea;
+                if (areaRatio < 0.25) {
+                    score += (0.25 - areaRatio) * 4000;
+                    addWarning(warnings, 'negative-offset-collapse');
+                }
+            }
+            if (sourceArea > 0 && offset > 0) {
+                var sourceBounds = source.bounds;
+                var centerShift = result.bounds.center.getDistance(sourceBounds.center);
+                var centerTolerance = Math.max(absOffset * 1.15, Math.min(sourceBounds.width, sourceBounds.height) * 0.08);
+                if (centerShift > centerTolerance) {
+                    score += (centerShift - centerTolerance) * 80;
+                    addWarning(warnings, 'offset-center-shift');
+                }
+            }
             var containmentTolerance_1 = Math.max(absOffset * 0.08, 0.5);
             var containmentSamples = offset >= 0 ? samplePoints(source) : samplePoints(result);
             containmentSamples.forEach(function (point) {
@@ -525,7 +551,60 @@
         }
         return path;
     }
+    function withoutAdaptiveFallback(strategy) {
+        return {
+            algorithm: 'robust',
+            splitSelfIntersectingCurves: strategy.splitSelfIntersectingCurves,
+            guardInsideJoins: strategy.guardInsideJoins,
+            simplifySelfIntersectingStroke: strategy.simplifySelfIntersectingStroke,
+            adaptiveFallback: false,
+        };
+    }
+    function addAdaptiveCandidate(candidates, makeResult) {
+        try {
+            candidates.push(makeResult());
+        }
+        catch (error) {
+            // Keep adaptive mode opportunistic: a failed fallback should not hide valid strict results.
+        }
+    }
+    function pickBestCandidate(source, offset, stroke, candidates) {
+        var bestResult = candidates[0];
+        var bestQuality = analyzeOffsetQuality(source, bestResult, offset, { stroke: stroke });
+        for (var i = 1; i < candidates.length; i += 1) {
+            var quality = analyzeOffsetQuality(source, candidates[i], offset, { stroke: stroke });
+            if (quality.score < bestQuality.score) {
+                bestResult = candidates[i];
+                bestQuality = quality;
+            }
+        }
+        return bestResult;
+    }
+    function offsetPathAdaptive(path, offset, join, limit, strategy) {
+        var baseStrategy = withoutAdaptiveFallback(strategy);
+        var candidates = new Array();
+        addAdaptiveCandidate(candidates, function () { return offsetPathWithStrategy(path, offset, join, limit, baseStrategy); });
+        if (join !== 'round') {
+            addAdaptiveCandidate(candidates, function () { return offsetPathWithStrategy(path, offset, 'round', limit, baseStrategy); });
+        }
+        if (path.closed && offset < 0) {
+            [0.8, 0.65, 0.5].forEach(function (factor) {
+                var fallbackOffset = offset * factor;
+                addAdaptiveCandidate(candidates, function () { return offsetPathWithStrategy(path, fallbackOffset, join, limit, baseStrategy); });
+                if (join !== 'round') {
+                    addAdaptiveCandidate(candidates, function () { return offsetPathWithStrategy(path, fallbackOffset, 'round', limit, baseStrategy); });
+                }
+            });
+        }
+        if (candidates.length === 0) {
+            return offsetPathWithStrategy(path, offset, join, limit, baseStrategy);
+        }
+        return pickBestCandidate(path, offset, false, candidates);
+    }
     function offsetPathWithStrategy(path, offset, join, limit, strategy) {
+        if (strategy.adaptiveFallback) {
+            return offsetPathAdaptive(path, offset, join, limit, strategy);
+        }
         var nonSIPath = getNonSelfIntersectionPath(path);
         var result = nonSIPath;
         if (nonSIPath instanceof paper.Path) {
@@ -570,6 +649,9 @@
         return offsetPathWithStrategy(path, offset, join, limit, getStrategy(algorithm));
     }
     function offsetStrokeWithStrategy(path, offset, join, cap, limit, strategy) {
+        if (strategy.adaptiveFallback) {
+            return offsetStrokeAdaptive(path, offset, join, cap, limit, strategy);
+        }
         var nonSIPath = getNonSelfIntersectionPath(path);
         var result = nonSIPath;
         if (nonSIPath instanceof paper.Path) {
@@ -587,6 +669,24 @@
         result.shadowColor = nonSIPath.shadowColor;
         result.shadowOffset = nonSIPath.shadowOffset;
         return result;
+    }
+    function offsetStrokeAdaptive(path, offset, join, cap, limit, strategy) {
+        var baseStrategy = withoutAdaptiveFallback(strategy);
+        var candidates = new Array();
+        addAdaptiveCandidate(candidates, function () { return offsetStrokeWithStrategy(path, offset, join, cap, limit, baseStrategy); });
+        if (join !== 'round') {
+            addAdaptiveCandidate(candidates, function () { return offsetStrokeWithStrategy(path, offset, 'round', cap, limit, baseStrategy); });
+        }
+        if (cap !== 'round') {
+            addAdaptiveCandidate(candidates, function () { return offsetStrokeWithStrategy(path, offset, join, 'round', limit, baseStrategy); });
+        }
+        if (join !== 'round' && cap !== 'round') {
+            addAdaptiveCandidate(candidates, function () { return offsetStrokeWithStrategy(path, offset, 'round', 'round', limit, baseStrategy); });
+        }
+        if (candidates.length === 0) {
+            return offsetStrokeWithStrategy(path, offset, join, cap, limit, baseStrategy);
+        }
+        return pickBestCandidate(path, offset, true, candidates);
     }
     function offsetStroke$1(path, offset, join, cap, limit, algorithm) {
         if (algorithm === void 0) { algorithm = 'auto'; }

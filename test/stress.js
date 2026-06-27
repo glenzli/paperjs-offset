@@ -3,7 +3,7 @@ const paper = require('paper');
 const { analyze, offset, offsetStroke } = require('../dist/index.umd.js');
 const createStressCases = require('../demo/stress-cases.js');
 
-const algorithms = ['legacy', 'split', 'robust', 'auto'];
+const algorithms = ['legacy', 'split', 'robust', 'adaptive', 'auto'];
 const criticalWarnings = new Set([
   'empty-result',
   'non-finite-bounds',
@@ -13,6 +13,8 @@ const criticalWarnings = new Set([
   'negative-offset-outside-source',
   'positive-offset-area-shrank',
   'negative-offset-area-grew',
+  'negative-offset-collapse',
+  'offset-center-shift',
 ]);
 
 paper.setup(new paper.Size(1200, 900));

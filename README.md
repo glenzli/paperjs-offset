@@ -2,75 +2,16 @@
 
 Offset geometry helpers for [Paper.js](https://paperjs.org/).
 
-[![paperjs-offset demo preview](public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
-
-[Open the live demo](https://glenzli.github.io/paperjs-offset/) · [Report an issue](https://github.com/glenzli/paperjs-offset/issues)
-
-This package gives Paper.js projects two operations that are useful in vector editors:
-
-- `offset(path, distance, options)` expands or contracts a closed path.
-- `offsetStroke(path, distance, options)` turns a stroked path into a filled outline.
-
-Path offsetting is a geometric approximation problem, especially around Bezier joins, self-intersections, and aggressive negative offsets. The default algorithm tries several strategies and chooses the best-scored result, but difficult shapes can still expose edge cases. Bug reports are most useful when they include `pathData`, distance, options, and the expected shape.
-
-## Install
-
-```sh
-npm install paper paperjs-offset
-```
-
-`paper` is a peer dependency. The package ships CommonJS, ESM, TypeScript declarations, and browser bundles.
-
-## Quick Start
+Use the named functions for new code:
 
 ```ts
 import paper from 'paper';
-import { offset, offsetStroke } from 'paperjs-offset';
+import { analyze, offset, offsetStroke } from 'paperjs-offset';
 
 paper.setup(new paper.Size(400, 300));
-
-const path = new paper.Path.Star({
-  center: [160, 120],
-  points: 8,
-  radius1: 70,
-  radius2: 36,
-  insert: false
-});
-
-const expanded = offset(path, 14, {
-  join: 'round',
-  insert: false
-});
-
-const outline = offsetStroke(path, 8, {
-  join: 'round',
-  cap: 'round',
-  insert: false
-});
 ```
 
-For browser pages, include Paper.js first and then the browser build:
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@1/dist/paperjs-offset.min.js"></script>
-```
-
-```js
-const expanded = paperjsOffset.offset(path, 12, { join: 'round' });
-```
-
-## API
-
-```ts
-import {
-  analyze,
-  offset,
-  offsetStroke,
-  type OffsetOptions,
-  type OffsetQuality
-} from 'paperjs-offset';
-```
+## Recommended API
 
 ```ts
 function offset(
@@ -93,62 +34,191 @@ function analyze(
 ): OffsetQuality;
 ```
 
-`OffsetOptions`:
+- `offset(path, distance, options)` expands or contracts a path.
+- `offsetStroke(path, distance, options)` converts a stroked centerline into a closed filled outline. The distance is the outline distance from the centerline, so it behaves like half of a stroke width.
+- `analyze(source, result, distance, options)` scores generated geometry and reports warnings for hard cases.
 
-| Option | Values | Default | Notes |
-| --- | --- | --- | --- |
-| `join` | `'miter'`, `'bevel'`, `'round'` | `'miter'` | Join style for adjacent offset curves. |
-| `cap` | `'butt'`, `'round'` | `'butt'` | Terminal style for `offsetStroke`. |
-| `limit` | `number` | `10` | Miter limit. |
-| `algorithm` | `'auto'`, `'robust'`, `'split'`, `'legacy'` | `'auto'` | Offset strategy. |
-| `insert` | `boolean` | `true` | Insert the generated result into the active Paper.js project. |
+All three functions accept `paper.Path` and `paper.CompoundPath`. Results are inserted into the active Paper.js project by default; pass `insert: false` when you want to manage the returned item yourself.
 
-The static `PaperOffset` export and the default prototype-extension helper still exist for older code, but new code should prefer the named functions above.
+## Install
 
-## Algorithms
+```sh
+npm install paper paperjs-offset
+```
 
-`algorithm: 'auto'` is the default. It runs the available strategies, scores each result with `analyze`, and returns the lowest-scoring result.
+`paper` is a peer dependency. The package ships CommonJS, ESM, TypeScript declarations, and browser bundles.
 
-| Strategy | Use case |
-| --- | --- |
-| `auto` | Best default for application code and demos. |
-| `robust` | Extra cleanup for concave joins and self-intersecting stroke outlines. |
-| `split` | Splits self-intersecting curves with less cleanup than `robust`. |
-| `legacy` | Closest behavior to older releases. Useful when preserving historical output matters. |
-
-You can inspect output quality directly:
+## Quick Start
 
 ```ts
-const result = offset(path, -12, {
+import paper from 'paper';
+import { offset, offsetStroke } from 'paperjs-offset';
+
+paper.setup(new paper.Size(400, 300));
+
+const source = new paper.Path.Star({
+  center: [160, 120],
+  points: 8,
+  radius1: 70,
+  radius2: 36,
+  insert: false
+});
+
+const expanded = offset(source, 14, {
+  join: 'round',
+  insert: false
+});
+
+const outline = offsetStroke(source, 8, {
+  join: 'round',
+  cap: 'round',
+  insert: false
+});
+```
+
+## API Patterns
+
+### 1. Offset a Closed Shape
+
+Positive distances expand closed shapes. Negative distances contract them.
+
+```ts
+const expanded = offset(source, 18, {
+  join: 'round',
+  insert: false
+});
+
+const contracted = offset(source, -18, {
+  join: 'round',
+  insert: false
+});
+```
+
+### 2. Build a Filled Stroke Outline
+
+Use `offsetStroke` for open or closed paths when you need a fillable outline instead of a rendered stroke.
+
+```ts
+const openPath = new paper.Path({
+  segments: [[20, 80], [90, 30], [160, 80]],
+  insert: false
+});
+
+const outline = offsetStroke(openPath, 10, {
+  join: 'round',
+  cap: 'round',
+  insert: false
+});
+```
+
+For open paths, `cap` controls the terminals. For closed paths, the result is still a closed filled outline.
+
+### 3. Inspect Quality
+
+Offsetting Bezier geometry is approximate. Use `analyze` when a shape may contain tight curves, concave joins, self-intersections, or aggressive negative offsets.
+
+```ts
+const result = offset(source, -12, {
+  join: 'round',
   algorithm: 'auto',
   insert: false
 });
 
-const quality = analyze(path, result, -12);
+const quality = analyze(source, result, -12);
 
 console.log(quality.score, quality.warnings);
 ```
 
-`quality.warnings` can report problems such as self-intersections, unexpected area changes, containment errors, or distance collapse. The stress tests use the same scorer.
+When inspecting `offsetStroke` output, pass `stroke: true`:
 
-## Demos
+```ts
+const outline = offsetStroke(openPath, 10, {
+  join: 'round',
+  cap: 'round',
+  insert: false
+});
 
-The repository is prepared for GitHub Pages at:
+const quality = analyze(openPath, outline, 10, { stroke: true });
+```
 
-https://glenzli.github.io/paperjs-offset/
+## Options
 
-Enable it in the repository settings with:
+```ts
+interface OffsetOptions {
+  join?: 'miter' | 'bevel' | 'round';
+  cap?: 'butt' | 'round';
+  limit?: number;
+  insert?: boolean;
+  algorithm?: 'auto' | 'adaptive' | 'robust' | 'split' | 'legacy';
+}
+```
 
-- Source: deploy from a branch
-- Branch: `master`
-- Folder: `/(root)`
+| Option | Default | Applies to | Notes |
+| --- | --- | --- | --- |
+| `join` | `'miter'` | `offset`, `offsetStroke` | Corner reconstruction style. |
+| `cap` | `'butt'` | `offsetStroke` | Terminal style for open paths. |
+| `limit` | `10` | `offset`, `offsetStroke` | Miter limit for sharp joins. |
+| `insert` | `true` | `offset`, `offsetStroke` | Insert the result into the source parent or active layer. |
+| `algorithm` | `'auto'` | `offset`, `offsetStroke` | Strategy selection mode. |
 
-The root `index.html` redirects to `demo/index.html`. The demo folder contains:
+## Algorithms
 
-- `demo/index.html`: a teaching guide for offset direction, joins, stroke outlines, compound paths, strategies, and quality scoring.
-- `demo/stress.html`: the deterministic stress corpus used by tests.
+`algorithm: 'auto'` is the recommended default. It tries the available strategies, scores each candidate with the same quality function exposed by `analyze`, and returns the lowest-scoring result.
 
-Single-case reproductions are best kept in issues with `pathData`, distance, and options instead of as permanent demo pages.
+`adaptive` is intentionally conservative. When a strict result looks like a miter spike or an over-eroded inward offset, it may choose a safer join or a smaller inward fallback distance. Use `robust`, `split`, or `legacy` when the requested distance must be treated strictly.
+
+| Mode | Use case |
+| --- | --- |
+| `auto` | Recommended application default. Chooses the best-scored result. |
+| `adaptive` | Tries strict robust output first, then safer fallbacks for miter spikes and aggressive inward collapse. |
+| `robust` | Extra cleanup for concave joins and self-intersecting stroke outlines. |
+| `split` | Splits self-intersecting curves with less cleanup than `robust`. |
+| `legacy` | Closest behavior to older releases when preserving historical output matters. |
+
+`OffsetQuality` includes:
+
+```ts
+interface OffsetQuality {
+  algorithm?: 'auto' | 'adaptive' | 'robust' | 'split' | 'legacy';
+  score: number;
+  warnings: string[];
+  selfIntersections: number;
+  containmentErrors: number;
+  distanceErrors: number;
+  segmentCount: number;
+  area: number;
+}
+```
+
+Warnings can include empty results, non-finite bounds, self-intersections, unexpected area changes, containment errors, center shift, negative offset collapse, and distance collapse.
+
+## Browser Usage
+
+For browser pages, load Paper.js first and then the browser build:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@1/dist/paperjs-offset.min.js"></script>
+```
+
+Use the `paperjsOffset` global for the current API:
+
+```js
+const expanded = paperjsOffset.offset(path, 12, {
+  join: 'round'
+});
+
+const outline = paperjsOffset.offsetStroke(path, 8, {
+  join: 'round',
+  cap: 'round'
+});
+```
+
+## Demo
+
+[![paperjs-offset demo examples](public/demo-guide.jpg)](https://glenzli.github.io/paperjs-offset/)
+
+[Open the live demo](https://glenzli.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The stress corpus is available from the same demo site.
 
 Run the demos locally:
 
@@ -156,7 +226,52 @@ Run the demos locally:
 npm run demo:serve
 ```
 
-`npm run build` writes browser bundles to `dist/` and then syncs the same generated files into `demo/`, so local demos and published artifacts exercise the same build.
+The root `index.html` redirects to `demo/index.html`. `npm run build` writes browser bundles to `dist/` and syncs the generated files into `demo/`, so local demos and published artifacts exercise the same build.
+
+## Compatibility API
+
+Older entry points still exist, but new code should prefer the named functions above.
+
+### Static Class
+
+```ts
+import { PaperOffset } from 'paperjs-offset';
+
+const expanded = PaperOffset.offset(path, 12, { join: 'round' });
+const outline = PaperOffset.offsetStroke(path, 8, { cap: 'round' });
+const quality = PaperOffset.analyze(path, expanded, 12);
+```
+
+The browser bundle also exposes `window.PaperOffset` as an alias for older scripts.
+
+### Prototype Extension
+
+```ts
+import paper from 'paper';
+import extendPaperJs from 'paperjs-offset';
+
+extendPaperJs(paper);
+
+const expanded = path.offset(12, { join: 'round' });
+const outline = path.offsetStroke(8, { cap: 'round' });
+```
+
+This mutates `paper.Path.prototype` and `paper.CompoundPath.prototype`. It remains available for compatibility, but named functions are easier to type, test, and migrate.
+
+## Limitations and Bug Reports
+
+Path offsetting is a geometric approximation problem, especially around Bezier joins, self-intersections, compound paths, and large negative offsets. Difficult shapes can still expose edge cases.
+
+Bug reports are most useful when they include:
+
+- `pathData`
+- distance
+- options
+- whether the operation is `offset` or `offsetStroke`
+- expected shape or screenshot
+- `analyze(...)` output when available
+
+Report issues at <https://github.com/glenzli/paperjs-offset/issues>.
 
 ## Development
 
