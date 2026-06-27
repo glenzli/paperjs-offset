@@ -76,6 +76,52 @@
     return subtractAll(outer, cutters);
   }
 
+  function makeRectCircleHole(width, height, radius) {
+    var rect = new paper.Path.Rectangle({
+      point: [-width / 2, -height / 2],
+      size: [width, height],
+      insert: false
+    });
+    var circle = new paper.Path.Circle({
+      center: [0, 0],
+      radius: radius,
+      insert: false
+    });
+    return subtractAll(rect, [circle]);
+  }
+
+  function makeHookWithHole() {
+    var outer = new paper.Path({ insert: false, closed: true });
+    outer.moveTo([75, 470]);
+    outer.lineTo([75, 94]);
+    outer.lineTo([257, 94]);
+    outer.cubicCurveTo([257, 205], [273, 300], [336, 356]);
+    outer.cubicCurveTo([393, 408], [470, 447], [540, 470]);
+    outer.lineTo([75, 470]);
+
+    return subtractAll(outer, [
+      new paper.Path.Circle({
+        center: [196, 349],
+        radius: 62,
+        insert: false
+      })
+    ]);
+  }
+
+  function makeJaggedSilhouette() {
+    return new paper.Path({
+      segments: [
+        [74, 30], [95, 60], [103, 35], [108, 49], [119, 41], [129, 58],
+        [131, 75], [125, 84], [130, 95], [149, 103], [128, 110], [121, 132],
+        [116, 153], [107, 181], [92, 193], [76, 196], [63, 190], [50, 174],
+        [47, 156], [55, 140], [65, 128], [61, 116], [54, 104], [58, 87],
+        [72, 84], [76, 72], [88, 70], [94, 57]
+      ],
+      closed: true,
+      insert: false
+    });
+  }
+
   function makeHairpin(index) {
     var gap = 5 + index % 4;
     var height = 42 + index % 5 * 4;
@@ -245,6 +291,14 @@
       })(ph);
     }
 
+    add(cases, 'rect-circle-hole-in', 'Rect circle hole inward', 'boundary-compound',
+      'offset', -36.675, { join: 'miter', limit: 10 },
+      function() { return makeRectCircleHole(386, 350, 163); });
+
+    add(cases, 'hook-hole-in', 'Hook shape with hole inward', 'boundary-compound',
+      'offset', -140, { join: 'miter', limit: 10 },
+      function() { return makeHookWithHole(); });
+
     for (var n = 0; n < 10; n += 1) {
       (function(index) {
         var neck = 6 + index % 4;
@@ -327,6 +381,9 @@
           pathData: 'M-70,15 C-40,-70 12,76 42,-40 C96,38 -18,86 -70,15 Z',
           insert: false
         });
+      }],
+      ['jagged-silhouette-out', 'Jagged silhouette outward', 'offset', 10, {}, function() {
+        return makeJaggedSilhouette();
       }]
     ].forEach(function(item) {
       add(cases, item[0], item[1], 'edge-case', item[2], item[3], item[4], item[5]);

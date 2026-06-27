@@ -607,6 +607,79 @@ function getNonSelfIntersectionPath(path: PathType) {
   return path;
 }
 
+function offsetCompoundChild(child: paper.Path, parent: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType | paper.Item[] | null {
+  if (child.segments.length <= 1) {
+    return null;
+  }
+  if (!isSameDirection(child, parent)) {
+    child.reverse();
+  }
+  let childOffset = offsetSimpleShape(child, offset, join, limit, strategy);
+  childOffset = normalize(childOffset);
+  if (childOffset.clockwise !== child.clockwise) {
+    childOffset.reverse();
+  }
+  if (childOffset instanceof paper.CompoundPath) {
+    childOffset.applyMatrix = true;
+    return childOffset.children;
+  }
+  return childOffset;
+}
+
+function offsetCompoundShape(path: paper.CompoundPath, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {
+  const children = (path.children as paper.Path[]).filter((child) => child.segments.length > 1);
+  const outers = children.filter((child) => child.clockwise);
+  const holes = children.filter((child) => !child.clockwise);
+
+  if (outers.length === 0 || holes.length === 0) {
+    const offsetParts = children.map((child) => offsetCompoundChild(child, path, offset, join, limit, strategy));
+    return new paper.CompoundPath({ children: offsetParts.flat().filter((child) => !!child) as paper.Item[], insert: false });
+  }
+
+  const pieces = outers.map((outer) => {
+    const outerOffset = offsetCompoundChild(outer, path, offset, join, limit, strategy);
+    let result = outerOffset instanceof Array
+      ? new paper.CompoundPath({ children: outerOffset, insert: false })
+      : outerOffset as PathType;
+    holes.forEach((hole) => {
+      if (!outer.contains(hole.bounds.center)) {
+        return;
+      }
+      const holeOffset = offsetCompoundChild(hole, path, offset, join, limit, strategy);
+      if (!holeOffset) {
+        return;
+      }
+      const holePath = holeOffset instanceof Array
+        ? new paper.CompoundPath({ children: holeOffset, insert: false })
+        : holeOffset as PathType;
+      const next = result.subtract(holePath, { insert: false }) as PathType;
+      result.remove();
+      holePath.remove();
+      result = next;
+    });
+    return result;
+  });
+
+  if (pieces.length === 1) {
+    return pieces[0];
+  }
+
+  return pieces.slice(1).reduce((result, piece) => {
+    const next = result.unite(piece, { insert: false }) as PathType;
+    result.remove();
+    piece.remove();
+    return next;
+  }, pieces[0]);
+}
+
+function hasCompoundHoles(path: PathType) {
+  if (!(path instanceof paper.CompoundPath)) {
+    return false;
+  }
+  const children = path.children as paper.Path[];
+  return children.some((child) => child.clockwise) && children.some((child) => !child.clockwise);
+}
+
 function withoutAdaptiveFallback(strategy: OffsetStrategy): OffsetStrategy {
   return {
     algorithm: 'robust',
@@ -670,34 +743,16 @@ function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoin
   }
 
   const nonSIPath = getNonSelfIntersectionPath(path);
+  const shouldNormalizeResult = !hasCompoundHoles(nonSIPath);
   let result = nonSIPath;
   if (nonSIPath instanceof paper.Path) {
     result = offsetSimpleShape(nonSIPath, offset, join, limit, strategy);
   } else {
-    const offsetParts = (nonSIPath.children as paper.Path[]).map((c) => {
-      if (c.segments.length > 1) {
-        if (!isSameDirection(c, path)) {
-          c.reverse();
-        }
-        let offsetPath = offsetSimpleShape(c, offset, join, limit, strategy);
-        offsetPath = normalize(offsetPath);
-        if (offsetPath.clockwise !== c.clockwise) {
-          offsetPath.reverse();
-        }
-        if (offsetPath instanceof paper.CompoundPath) {
-          offsetPath.applyMatrix = true;
-          return offsetPath.children;
-        } else {
-          return offsetPath;
-        }
-      } else {
-        return null;
-      }
-    });
-    const children = offsetParts.flat().filter((c) => !!c) as paper.Item[];
-    result = new paper.CompoundPath({ children, insert: false });
+    result = offsetCompoundShape(nonSIPath, offset, join, limit, strategy);
   }
-  result = normalize(result);
+  if (shouldNormalizeResult) {
+    result = normalize(result);
+  }
   result.copyAttributes(nonSIPath, false);
   result.remove();
   return result;

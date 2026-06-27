@@ -554,6 +554,72 @@
         }
         return path;
     }
+    function offsetCompoundChild(child, parent, offset, join, limit, strategy) {
+        if (child.segments.length <= 1) {
+            return null;
+        }
+        if (!isSameDirection(child, parent)) {
+            child.reverse();
+        }
+        var childOffset = offsetSimpleShape(child, offset, join, limit, strategy);
+        childOffset = normalize(childOffset);
+        if (childOffset.clockwise !== child.clockwise) {
+            childOffset.reverse();
+        }
+        if (childOffset instanceof paper.CompoundPath) {
+            childOffset.applyMatrix = true;
+            return childOffset.children;
+        }
+        return childOffset;
+    }
+    function offsetCompoundShape(path, offset, join, limit, strategy) {
+        var children = path.children.filter(function (child) { return child.segments.length > 1; });
+        var outers = children.filter(function (child) { return child.clockwise; });
+        var holes = children.filter(function (child) { return !child.clockwise; });
+        if (outers.length === 0 || holes.length === 0) {
+            var offsetParts = children.map(function (child) { return offsetCompoundChild(child, path, offset, join, limit, strategy); });
+            return new paper.CompoundPath({ children: offsetParts.flat().filter(function (child) { return !!child; }), insert: false });
+        }
+        var pieces = outers.map(function (outer) {
+            var outerOffset = offsetCompoundChild(outer, path, offset, join, limit, strategy);
+            var result = outerOffset instanceof Array
+                ? new paper.CompoundPath({ children: outerOffset, insert: false })
+                : outerOffset;
+            holes.forEach(function (hole) {
+                if (!outer.contains(hole.bounds.center)) {
+                    return;
+                }
+                var holeOffset = offsetCompoundChild(hole, path, offset, join, limit, strategy);
+                if (!holeOffset) {
+                    return;
+                }
+                var holePath = holeOffset instanceof Array
+                    ? new paper.CompoundPath({ children: holeOffset, insert: false })
+                    : holeOffset;
+                var next = result.subtract(holePath, { insert: false });
+                result.remove();
+                holePath.remove();
+                result = next;
+            });
+            return result;
+        });
+        if (pieces.length === 1) {
+            return pieces[0];
+        }
+        return pieces.slice(1).reduce(function (result, piece) {
+            var next = result.unite(piece, { insert: false });
+            result.remove();
+            piece.remove();
+            return next;
+        }, pieces[0]);
+    }
+    function hasCompoundHoles(path) {
+        if (!(path instanceof paper.CompoundPath)) {
+            return false;
+        }
+        var children = path.children;
+        return children.some(function (child) { return child.clockwise; }) && children.some(function (child) { return !child.clockwise; });
+    }
     function withoutAdaptiveFallback(strategy) {
         return {
             algorithm: 'robust',
@@ -609,37 +675,17 @@
             return offsetPathAdaptive(path, offset, join, limit, strategy);
         }
         var nonSIPath = getNonSelfIntersectionPath(path);
+        var shouldNormalizeResult = !hasCompoundHoles(nonSIPath);
         var result = nonSIPath;
         if (nonSIPath instanceof paper.Path) {
             result = offsetSimpleShape(nonSIPath, offset, join, limit, strategy);
         }
         else {
-            var offsetParts = nonSIPath.children.map(function (c) {
-                if (c.segments.length > 1) {
-                    if (!isSameDirection(c, path)) {
-                        c.reverse();
-                    }
-                    var offsetPath_1 = offsetSimpleShape(c, offset, join, limit, strategy);
-                    offsetPath_1 = normalize(offsetPath_1);
-                    if (offsetPath_1.clockwise !== c.clockwise) {
-                        offsetPath_1.reverse();
-                    }
-                    if (offsetPath_1 instanceof paper.CompoundPath) {
-                        offsetPath_1.applyMatrix = true;
-                        return offsetPath_1.children;
-                    }
-                    else {
-                        return offsetPath_1;
-                    }
-                }
-                else {
-                    return null;
-                }
-            });
-            var children = offsetParts.flat().filter(function (c) { return !!c; });
-            result = new paper.CompoundPath({ children: children, insert: false });
+            result = offsetCompoundShape(nonSIPath, offset, join, limit, strategy);
         }
-        result = normalize(result);
+        if (shouldNormalizeResult) {
+            result = normalize(result);
+        }
         result.copyAttributes(nonSIPath, false);
         result.remove();
         return result;

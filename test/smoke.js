@@ -39,6 +39,57 @@ function makeLegacyStressStar(index, positive) {
   });
 }
 
+function makeRectCircleHole(width, height, radius) {
+  const rect = new paper.Path.Rectangle({
+    point: [-width / 2, -height / 2],
+    size: [width, height],
+    insert: false,
+  });
+  const circle = new paper.Path.Circle({
+    center: [0, 0],
+    radius,
+    insert: false,
+  });
+  const result = rect.exclude(circle, { insert: false });
+  rect.remove();
+  circle.remove();
+  return result;
+}
+
+function makeHookWithHole() {
+  const outer = new paper.Path({ insert: false, closed: true });
+  outer.moveTo([75, 470]);
+  outer.lineTo([75, 94]);
+  outer.lineTo([257, 94]);
+  outer.cubicCurveTo([257, 205], [273, 300], [336, 356]);
+  outer.cubicCurveTo([393, 408], [470, 447], [540, 470]);
+  outer.lineTo([75, 470]);
+
+  const hole = new paper.Path.Circle({
+    center: [196, 349],
+    radius: 62,
+    insert: false,
+  });
+  const result = outer.subtract(hole, { insert: false });
+  outer.remove();
+  hole.remove();
+  return result;
+}
+
+function makeJaggedSilhouette() {
+  return new paper.Path({
+    segments: [
+      [74, 30], [95, 60], [103, 35], [108, 49], [119, 41], [129, 58],
+      [131, 75], [125, 84], [130, 95], [149, 103], [128, 110], [121, 132],
+      [116, 153], [107, 181], [92, 193], [76, 196], [63, 190], [50, 174],
+      [47, 156], [55, 140], [65, 128], [61, 116], [54, 104], [58, 87],
+      [72, 84], [76, 72], [88, 70], [94, 57],
+    ],
+    closed: true,
+    insert: false,
+  });
+}
+
 paper.setup(new paper.Size(1200, 900));
 
 {
@@ -185,4 +236,45 @@ paper.setup(new paper.Size(1200, 900));
   assert.ok(legacyQuality.warnings.includes('negative-offset-collapse'), 'strict inward star should report collapse');
   assert.strictEqual(resultQuality.warnings.includes('negative-offset-collapse'), false);
   assert.ok(resultQuality.score < legacyQuality.score, 'auto should avoid aggressive inward collapse');
+}
+
+{
+  const source = makeRectCircleHole(386, 350, 163);
+  for (let i = 1; i < 5; i += 0.5) {
+    const distance = -i * 163 / 20;
+    const result = offset(source, distance, {
+      insert: false,
+      join: 'miter',
+      limit: 10,
+    });
+    const quality = analyze(source, result, distance);
+
+    assert.deepStrictEqual(quality.warnings, [], `rect-circle hole inward offset ${distance} should stay clean`);
+    assert.strictEqual(quality.selfIntersections, 0, `rect-circle hole inward offset ${distance} should not self-intersect`);
+  }
+}
+
+{
+  const distances = [-80, -100, -120, -140];
+  distances.forEach((distance) => {
+    const source = makeHookWithHole();
+    const result = offset(source, distance, {
+      insert: false,
+      join: 'miter',
+      limit: 10,
+    });
+    const quality = analyze(source, result, distance);
+
+    assert.deepStrictEqual(quality.warnings, [], `hook hole inward offset ${distance} should stay clean`);
+    assert.strictEqual(quality.selfIntersections, 0, `hook hole inward offset ${distance} should not self-intersect`);
+  });
+}
+
+{
+  const source = makeJaggedSilhouette();
+  const result = offset(source, 10, { insert: false });
+  const quality = analyze(source, result, 10);
+
+  assert.deepStrictEqual(quality.warnings, [], 'jagged silhouette outward offset should stay clean');
+  assert.strictEqual(quality.selfIntersections, 0, 'jagged silhouette outward offset should not self-intersect');
 }
