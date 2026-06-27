@@ -48,26 +48,23 @@
     "release:check": "npm run lint && npm test && npm audit --registry=https://registry.npmjs.org && npm pack --dry-run",
     "release:publish": "npm publish"
   },
-  "peerDependencies": {
-    "paper": "^0.12.18"
-  },
   "devDependencies": {
-    "@rollup/plugin-terser": "^1.0.0",
-    "paper": "^0.12.18",
-    "rimraf": "^6.0.0",
-    "rollup": "^4.0.0",
-    "typescript": "^5.0.0"
+    "@rollup/plugin-terser": "1.0.0",
+    "paper": "0.12.18",
+    "rimraf": "6.1.3",
+    "rollup": "4.62.2",
+    "typescript": "5.9.3"
   },
-  "author": "glenli <glenzli@outlook.com>",
+  "author": "g4i",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/glenzli/paperjs-offset.git"
+    "url": "git+https://github.com/g4i/paperjs-offset.git"
   },
   "bugs": {
-    "url": "https://github.com/glenzli/paperjs-offset/issues"
+    "url": "https://github.com/g4i/paperjs-offset/issues"
   },
-  "homepage": "https://glenzli.github.io/paperjs-offset/",
+  "homepage": "https://g4i.github.io/paperjs-offset/",
   "keywords": [
     "paperjs",
     "offset"

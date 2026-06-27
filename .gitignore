@@ -1,13 +1,32 @@
-coverage
-node_modules
-.nyc_output
-.DS_Store
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+compiled/
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Tool caches
+.awcache/
+.rpt2_cache/
+*.tsbuildinfo
+
+# Local archives and logs
 *.log
-.vscode
-.idea
-dist
-compiled
-.awcache
-.rpt2_cache
-docs
-issues
+*.tgz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local notes and generated docs
+docs/
+issues/

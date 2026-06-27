@@ -6,6 +6,7 @@ const root = __dirname;
 const hostname = 'localhost';
 const port = 4173;
 const paperBundlePath = path.join(root, '..', 'node_modules', 'paper', 'dist', 'paper-full.min.js');
+const paperBundleUrl = '/node_modules/paper/dist/paper-full.min.js';
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -21,7 +22,7 @@ function resolveRequestPath(urlPath) {
   const cleanPath = decodeURIComponent(urlPath.split('?')[0]);
   const relativePath = cleanPath === '/' ? '/index.html' : cleanPath;
 
-  if (relativePath === '/vendor/paper-full.min.js') {
+  if (relativePath === paperBundleUrl) {
     return paperBundlePath;
   }
 

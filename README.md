@@ -2,9 +2,9 @@
 
 Offset geometry helpers for [Paper.js](https://paperjs.org/).
 
-[![paperjs-offset preview](public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
+[![paperjs-offset preview](public/preview.jpg)](https://g4i.github.io/paperjs-offset/)
 
-[Open the live demo](https://glenzli.github.io/paperjs-offset/) · [Report an issue](https://github.com/glenzli/paperjs-offset/issues)
+[Open the live demo](https://g4i.github.io/paperjs-offset/) · [Report an issue](https://github.com/g4i/paperjs-offset/issues)
 
 Run the live preview locally:
 
@@ -62,7 +62,7 @@ All three functions accept `paper.Path` and `paper.CompoundPath`. Results are in
 npm install paper paperjs-offset
 ```
 
-`paper` is a peer dependency. The package ships CommonJS, ESM, TypeScript declarations, and browser bundles.
+Install `paper` in applications that use this addon. `paperjs-offset` does not declare runtime dependencies; the package ships CommonJS, ESM, TypeScript declarations, and browser bundles.
 
 ## Quick Start
 
@@ -214,7 +214,7 @@ For browser pages, load Paper.js first and then the browser build:
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@1/dist/paperjs-offset.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@1.0.8/dist/paperjs-offset.min.js"></script>
 ```
 
 Use the `paperjsOffset` global for the current API:
@@ -232,7 +232,7 @@ const outline = paperjsOffset.offsetStroke(path, 8, {
 
 ## Demo
 
-[Open the live demo](https://glenzli.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The gallery is split into basic, advanced, boundary, and edge-case pages so each page renders a smaller deterministic case set.
+[Open the live demo](https://g4i.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The gallery is split into basic, advanced, boundary, and edge-case pages so each page renders a smaller deterministic case set.
 
 Run the demos locally:
 
@@ -285,7 +285,7 @@ Bug reports are most useful when they include:
 - expected shape or screenshot
 - `analyze(...)` output when available
 
-Report issues at <https://github.com/glenzli/paperjs-offset/issues>.
+Report issues at <https://github.com/g4i/paperjs-offset/issues>.
 
 ## Development
 
