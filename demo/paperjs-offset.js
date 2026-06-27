@@ -588,7 +588,7 @@
             addAdaptiveCandidate(candidates, function () { return offsetPathWithStrategy(path, offset, 'round', limit, baseStrategy); });
         }
         if (path.closed && offset < 0) {
-            [0.8, 0.65, 0.5].forEach(function (factor) {
+            [0.8, 0.65, 0.5, 0.35, 0.25].forEach(function (factor) {
                 var fallbackOffset = offset * factor;
                 addAdaptiveCandidate(candidates, function () { return offsetPathWithStrategy(path, fallbackOffset, join, limit, baseStrategy); });
                 if (join !== 'round') {

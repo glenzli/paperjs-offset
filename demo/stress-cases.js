@@ -26,6 +26,71 @@
     return path;
   }
 
+  function makeNeedleStar(center, points, outerRadius, innerRadius, rotation, wobble) {
+    var radii = [];
+    for (var i = 0; i < points * 2; i += 1) {
+      var wave = Math.sin(wobble + i * 1.31);
+      radii.push(i % 2 === 0
+        ? outerRadius + wave * 4
+        : innerRadius + wave * 2);
+    }
+    return makePolygon(center, radii, rotation);
+  }
+
+  function makeComb(center, teeth, width, top, bottom, bayDepth, skew) {
+    var left = center[0] - width / 2;
+    var step = width / (teeth * 2);
+    var segments = [
+      [left, center[1] + bottom],
+      [center[0] + width / 2, center[1] + bottom],
+      [center[0] + width / 2, center[1] + top]
+    ];
+    for (var i = teeth - 1; i >= 0; i -= 1) {
+      var right = left + (i * 2 + 2) * step;
+      var middle = left + (i * 2 + 1) * step;
+      var toothLeft = left + i * 2 * step;
+      segments.push([right, center[1] + top]);
+      segments.push([middle + skew, center[1] + top + bayDepth]);
+      segments.push([toothLeft, center[1] + top]);
+    }
+    return new paper.Path({ segments: segments, closed: true, insert: false });
+  }
+
+  function makePinHoleCompound(index) {
+    var outer = new paper.Path.Rectangle({
+      point: [-74, -50],
+      size: [148, 100],
+      insert: false
+    });
+    var cutters = [];
+    for (var i = 0; i < 3; i += 1) {
+      cutters.push(new paper.Path.Circle({
+        center: [
+          -34 + i * 34 + (index % 2 === 0 ? 0 : 4),
+          Math.sin(index + i * 0.8) * 13
+        ],
+        radius: 8 + (index + i) % 4,
+        insert: false
+      }));
+    }
+    return subtractAll(outer, cutters);
+  }
+
+  function makeHairpin(index) {
+    var gap = 5 + index % 4;
+    var height = 42 + index % 5 * 4;
+    return makeOpenPath([
+      [-76, -height],
+      [-26, -height],
+      [-26, height],
+      [-26 + gap, height],
+      [-26 + gap, -height + 8],
+      [20, -height + 8],
+      [20, height - 8],
+      [70, height - 8]
+    ], index % 2 === 0);
+  }
+
   function makeOpenPath(points, smooth) {
     var path = new paper.Path({ segments: points, closed: false, insert: false });
     if (smooth) {
@@ -137,6 +202,49 @@
       })(h);
     }
 
+    for (var ns = 0; ns < 10; ns += 1) {
+      (function(index) {
+        var points = 8 + index % 5;
+        add(cases, 'needle-star-out-' + index, 'Needle star outward ' + index, 'boundary-offset',
+          'offset', 13 + index % 5, { join: index % 2 === 0 ? 'miter' : 'round', limit: 3 },
+          function() {
+            return makeNeedleStar([0, 0], points, 70 + index * 2, 9 + index % 4, rotations[index % rotations.length], index * 0.71);
+          });
+        add(cases, 'needle-star-in-' + index, 'Needle star inward ' + index, 'boundary-offset',
+          'offset', -(4 + index % 4), { join: index % 2 === 0 ? 'round' : 'bevel', limit: 3 },
+          function() {
+            return makeNeedleStar([0, 0], points, 70 + index * 2, 9 + index % 4, rotations[(index + 1) % rotations.length], index * 0.71);
+          });
+      })(ns);
+    }
+
+    for (var cb = 0; cb < 10; cb += 1) {
+      (function(index) {
+        var teeth = 5 + index % 5;
+        add(cases, 'comb-bays-out-' + index, 'Comb bays outward ' + index, 'boundary-offset',
+          'offset', 9 + index % 4, { join: index % 3 === 0 ? 'miter' : 'round', limit: 3 },
+          function() {
+            return makeComb([0, 0], teeth, 138, -46, 42, 42 + index % 4 * 4, index % 2 === 0 ? 0 : 3);
+          });
+        add(cases, 'comb-bays-in-' + index, 'Comb bays inward ' + index, 'boundary-offset',
+          'offset', -(4 + index % 4), { join: 'round', limit: 3 },
+          function() {
+            return makeComb([0, 0], teeth, 138, -46, 42, 42 + index % 4 * 4, index % 2 === 0 ? 0 : 3);
+          });
+      })(cb);
+    }
+
+    for (var ph = 0; ph < 3; ph += 1) {
+      (function(index) {
+        add(cases, 'pin-hole-out-' + index, 'Pin-hole compound outward ' + index, 'boundary-compound',
+          'offset', 7 + index % 4, { join: 'round', limit: 4 },
+          function() { return makePinHoleCompound(index); });
+        add(cases, 'pin-hole-in-' + index, 'Pin-hole compound inward ' + index, 'boundary-compound',
+          'offset', -(3 + index % 3), { join: index % 2 === 0 ? 'round' : 'miter', limit: 3 },
+          function() { return makePinHoleCompound(index); });
+      })(ph);
+    }
+
     for (var n = 0; n < 10; n += 1) {
       (function(index) {
         var neck = 6 + index % 4;
@@ -169,6 +277,14 @@
           'stroke', 8 + index % 7, { join: index % 2 === 0 ? 'round' : 'miter', cap: index % 3 === 0 ? 'round' : 'butt', limit: 5 },
           function() { return makeOpenPath(points, false); });
       })(o);
+    }
+
+    for (var hp = 0; hp < 12; hp += 1) {
+      (function(index) {
+        add(cases, 'hairpin-stroke-' + index, 'Hairpin stroke ' + index, 'boundary-stroke',
+          'stroke', 9 + index % 7, { join: index % 2 === 0 ? 'miter' : 'round', cap: index % 3 === 0 ? 'butt' : 'round', limit: 3 },
+          function() { return makeHairpin(index); });
+      })(hp);
     }
 
     for (var q = 0; q < 12; q += 1) {

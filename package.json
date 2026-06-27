@@ -42,6 +42,8 @@
     "test": "npm run build && npm run test:smoke && npm run test:stress:run",
     "test:smoke": "node test/smoke.js",
     "test:stress": "npm run build && npm run test:stress:run",
+    "test:stress:quick": "npm run build && node test/stress.js --groups=closed-offset,smooth-offset,compound-offset,stroke-offset,edge-case",
+    "test:stress:boundary": "npm run build && node test/stress.js --groups=boundary-offset,boundary-compound,boundary-stroke",
     "test:stress:run": "node test/stress.js",
     "release:check": "npm run lint && npm test && npm audit --registry=https://registry.npmjs.org && npm pack --dry-run",
     "release:publish": "npm publish"

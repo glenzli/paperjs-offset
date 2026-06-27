@@ -189,6 +189,27 @@ canvas {
   background-size: 28px 28px;
 }
 
+.preview-page {
+  overflow: hidden;
+  background: #fbfcfd;
+}
+
+.preview-stage {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #fbfcfd;
+}
+
+.preview-stage canvas {
+  width: 100vw;
+  height: 100vh;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: #fbfcfd;
+}
+
 pre {
   overflow: auto;
   min-height: 150px;
@@ -207,6 +228,38 @@ pre {
   margin: -8px 0 22px;
   color: #596168;
   font-weight: 650;
+}
+
+.stress-groups {
+  display: grid;
+  gap: 30px;
+}
+
+.stress-group {
+  display: grid;
+  gap: 12px;
+}
+
+.stress-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #d9e0e5;
+}
+
+.stress-group-header h2 {
+  margin-bottom: 0;
+  font-size: 1.08rem;
+}
+
+.stress-group-header p {
+  max-width: 620px;
+  margin-bottom: 0;
+  color: #596168;
+  font-size: 0.86rem;
 }
 
 .stress-grid {

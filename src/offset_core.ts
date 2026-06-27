@@ -648,7 +648,7 @@ function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType
   }
 
   if (path.closed && offset < 0) {
-    [0.8, 0.65, 0.5].forEach((factor) => {
+    [0.8, 0.65, 0.5, 0.35, 0.25].forEach((factor) => {
       const fallbackOffset = offset * factor;
       addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, fallbackOffset, join, limit, baseStrategy));
       if (join !== 'round') {

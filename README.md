@@ -216,9 +216,9 @@ const outline = paperjsOffset.offsetStroke(path, 8, {
 
 ## Demo
 
-[![paperjs-offset demo examples](public/demo-guide.jpg)](https://glenzli.github.io/paperjs-offset/)
+[![paperjs-offset demo examples](public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
 
-[Open the live demo](https://glenzli.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The stress corpus is available from the same demo site.
+[Open the live demo](https://glenzli.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The boundary gallery is available from the same demo site and groups deterministic stress cases by shape family.
 
 Run the demos locally:
 
@@ -280,6 +280,8 @@ npm ci
 npm run lint
 npm test
 npm run test:stress
+npm run test:stress:quick
+npm run test:stress:boundary
 ```
 
 Useful build commands:
@@ -290,7 +292,7 @@ npm run build:ts
 npm run build:bundles
 ```
 
-`npm test` rebuilds the package, runs smoke tests, and then runs the generated stress corpus.
+`npm test` rebuilds the package, runs smoke tests, and then runs the full generated stress corpus. Use `test:stress:quick` for the normal gallery groups, and `test:stress:boundary` for the aggressive boundary groups.
 
 ## Release
 

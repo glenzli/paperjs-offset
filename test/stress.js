@@ -19,6 +19,19 @@ const criticalWarnings = new Set([
 
 paper.setup(new paper.Size(1200, 900));
 
+function getSelectedGroups() {
+  const groupArg = process.argv.find((arg) => arg.indexOf('--groups=') === 0);
+  if (!groupArg) {
+    return null;
+  }
+  const groups = groupArg
+    .replace('--groups=', '')
+    .split(',')
+    .map((group) => group.trim())
+    .filter(Boolean);
+  return groups.length > 0 ? new Set(groups) : null;
+}
+
 function cloneOptions(options, algorithm) {
   return Object.assign({}, options, {
     algorithm,
@@ -53,7 +66,11 @@ function hasCriticalWarning(summary) {
   return summary.warnings.some((warning) => criticalWarnings.has(warning));
 }
 
-const cases = createStressCases(paper);
+const selectedGroups = getSelectedGroups();
+const cases = createStressCases(paper).filter((testCase) => {
+  return !selectedGroups || selectedGroups.has(testCase.kind);
+});
+assert.ok(cases.length > 0, 'stress group selection did not match any cases');
 const failures = [];
 const summaries = [];
 
@@ -98,6 +115,7 @@ cases.forEach((testCase) => {
 if (failures.length > 0) {
   console.error(JSON.stringify({
     total: cases.length,
+    groups: selectedGroups ? Array.from(selectedGroups) : ['all'],
     failures,
   }, null, 2));
   process.exitCode = 1;
@@ -118,6 +136,7 @@ if (failures.length > 0) {
 
   console.log(JSON.stringify({
     total: cases.length,
+    groups: selectedGroups ? Array.from(selectedGroups) : ['all'],
     failures: 0,
     worst,
   }, null, 2));
