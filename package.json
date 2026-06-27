@@ -36,7 +36,7 @@
     "build:ts": "tsc -p tsconfig.json",
     "build:bundles": "node build.js",
     "demo:build": "npm run build",
-    "demo:serve": "npm run demo:build && python3 -m http.server 4173 --directory demo",
+    "demo:serve": "npm run demo:build && node demo/serve.js",
     "prepack": "npm run build",
     "prepublishOnly": "npm run release:check",
     "test": "npm run build && npm run test:smoke && npm run test:stress:run",

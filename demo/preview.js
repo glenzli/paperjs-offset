@@ -1,6 +1,6 @@
 (function() {
   var WIDTH = 1280;
-  var HEIGHT = 720;
+  var HEIGHT = 1200;
 
   var palettes = [
     {
@@ -99,6 +99,16 @@
     ]);
   }
 
+  function makeSmoothBlob(seed) {
+    var radii = [];
+    for (var i = 0; i < 9; i += 1) {
+      radii.push(54 + Math.sin(seed + i * 1.73) * 18 + (i % 3 === 0 ? 16 : 0));
+    }
+    var path = makePolygon([0, 0], radii, seed * 0.11);
+    path.smooth({ type: 'continuous' });
+    return path;
+  }
+
   function makeComb(teeth, width, top, bottom, bayDepth, skew) {
     var left = -width / 2;
     var step = width / (teeth * 2);
@@ -164,6 +174,40 @@
     return path;
   }
 
+  function makeHairpinStroke() {
+    var path = new paper.Path({
+      segments: [
+        [-110, -46],
+        [-34, -46],
+        [-34, 48],
+        [-22, 48],
+        [-22, -34],
+        [36, -34],
+        [36, 42],
+        [110, 42]
+      ],
+      closed: false,
+      insert: false
+    });
+    path.strokeColor = '#172a3a';
+    return path;
+  }
+
+  function makeTightCubic() {
+    return new paper.Path({
+      pathData: 'M-88,18 C-50,-84 18,86 58,-50 C116,42 -24,104 -88,18 Z',
+      insert: false
+    });
+  }
+
+  function makeSkinnyTriangle() {
+    return new paper.Path({
+      segments: [[-84, 46], [0, -58], [84, 46], [4, 36]],
+      closed: true,
+      insert: false
+    });
+  }
+
   function makeRegularStroke() {
     var path = new paper.Path({
       segments: [
@@ -183,6 +227,9 @@
   }
 
   function drawGroupPanel(title, y, height) {
+    var panelPaddingX = 26;
+    var panelPaddingTop = 42;
+
     new paper.Path.Rectangle({
       point: [28, y],
       size: [WIDTH - 56, height],
@@ -193,7 +240,7 @@
     });
 
     new paper.PointText({
-      point: [54, y + 34],
+      point: [28 + panelPaddingX, y + panelPaddingTop],
       content: title,
       fillColor: '#334155',
       fontFamily: 'Inter, system-ui, sans-serif',
@@ -289,6 +336,7 @@
   function drawPreview() {
     var canvas = document.getElementById('preview-canvas');
     paper.setup(canvas);
+    paper.view.viewSize = new paper.Size(WIDTH, HEIGHT);
     paper.project.activeLayer.removeChildren();
 
     new paper.Path.Rectangle({
@@ -299,14 +347,14 @@
     });
     drawGrid();
 
-    drawGroupPanel('Regular offset cases', 28, 300);
-    drawGroupPanel('Boundary offset cases', 362, 330);
+    drawGroupPanel('Regular offset cases', 28, 500);
+    drawGroupPanel('Boundary offset cases', 572, 600);
 
     drawOffsetStack(
       makeRegularStar(8, 72, 36, -0.1),
       [-16, -8, 12, 24],
-      [168, 184],
-      [210, 210],
+      [160, 190],
+      [188, 188],
       palettes[0],
       { join: 'round', limit: 4 }
     );
@@ -314,8 +362,8 @@
     drawOffsetStack(
       makeRoundedBox(132, 92, 18),
       [-14, -7, 11, 22],
-      [432, 184],
-      [210, 180],
+      [408, 190],
+      [188, 162],
       palettes[1],
       { join: 'round', limit: 4 }
     );
@@ -323,8 +371,8 @@
     drawOffsetStack(
       makeRegularCompound(),
       [-12, -6, 10, 20],
-      [704, 184],
-      [230, 200],
+      [656, 190],
+      [198, 172],
       palettes[2],
       { join: 'round', limit: 4 }
     );
@@ -332,16 +380,51 @@
     drawStrokeStack(
       makeRegularStroke(),
       [8, 14, 21],
-      [1022, 184],
-      [270, 170],
+      [1030, 190],
+      [250, 150],
       palettes[0]
+    );
+
+    drawOffsetStack(
+      makeSmoothBlob(1.8),
+      [-12, -6, 10, 19],
+      [176, 420],
+      [210, 186],
+      palettes[1],
+      { join: 'round', limit: 4 }
+    );
+
+    drawOffsetStack(
+      makeRegularStar(6, 68, 42, 0.24),
+      [-12, -6, 10, 20],
+      [424, 420],
+      [190, 184],
+      palettes[2],
+      { join: 'bevel', limit: 4 }
+    );
+
+    drawOffsetStack(
+      makeRoundedBox(150, 74, 36),
+      [-10, -5, 9, 18],
+      [672, 420],
+      [220, 148],
+      palettes[0],
+      { join: 'round', limit: 4 }
+    );
+
+    drawStrokeStack(
+      makeRegularStroke().rotate(12),
+      [7, 13, 19],
+      [1028, 420],
+      [260, 150],
+      palettes[1]
     );
 
     drawOffsetStack(
       makeNeedleStar(14, 96, 8, 0.19, 2.1),
       [-5, -3, 10, 18, 28, 38],
-      [214, 532],
-      [310, 290],
+      [178, 780],
+      [204, 194],
       palettes[2],
       { join: 'miter', limit: 3 }
     );
@@ -349,8 +432,8 @@
     drawOffsetStack(
       makePinHoleCompound(7),
       [-8, -4, 7, 15, 24, 34],
-      [574, 532],
-      [310, 290],
+      [458, 780],
+      [204, 194],
       palettes[0],
       { join: 'round', limit: 4 }
     );
@@ -358,17 +441,52 @@
     drawOffsetStack(
       makeComb(8, 168, -55, 48, 58, 3),
       [-7, -4, 8, 16, 24],
-      [852, 532],
-      [250, 250],
+      [738, 780],
+      [204, 188],
       palettes[2],
       { join: 'round', limit: 3 }
     );
 
     drawStrokeStack(
+      makeHairpinStroke(),
+      [9, 16, 24, 33],
+      [1042, 780],
+      [218, 172],
+      palettes[1]
+    );
+
+    drawOffsetStack(
+      makeNeedleStar(12, 90, 10, -0.11, 0.6),
+      [-6, -3, 11, 19, 30],
+      [190, 1060],
+      [204, 190],
+      palettes[0],
+      { join: 'round', limit: 3 }
+    );
+
+    drawOffsetStack(
+      makeTightCubic(),
+      [-8, -4, 9, 17, 26],
+      [466, 1060],
+      [204, 190],
+      palettes[1],
+      { join: 'round', limit: 4 }
+    );
+
+    drawOffsetStack(
+      makeSkinnyTriangle(),
+      [-4, -2, 8, 15, 24],
+      [734, 1060],
+      [188, 178],
+      palettes[2],
+      { join: 'miter', limit: 3 }
+    );
+
+    drawStrokeStack(
       makeRibbonStroke().rotate(-14),
       [9, 16, 24, 33],
-      [1100, 532],
-      [260, 210],
+      [1036, 1060],
+      [228, 166],
       palettes[1]
     );
 

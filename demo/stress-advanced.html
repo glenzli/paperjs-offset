@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>paperjs-offset advanced gallery</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./demo.css">
+    <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js" onerror="document.write('&lt;script src=&quot;./vendor/paper-full.min.js&quot;&gt;&lt;\\/script&gt;')"></script>
+    <script src="./paperjs-offset.js"></script>
+    <script src="./stress-cases.js"></script>
+    <script src="./stress.js" defer></script>
+  </head>
+  <body data-stress-groups="compound-offset,stroke-offset">
+    <main class="page">
+      <header class="page-header">
+        <p class="eyebrow">paperjs-offset</p>
+        <h1>Advanced gallery</h1>
+        <p class="intro">
+          Compound path normalization and open stroke outline cases without loading the boundary groups.
+        </p>
+        <nav class="demo-nav" aria-label="Demo pages">
+          <a href="./preview.html">Preview</a>
+          <a href="./index.html">Guide</a>
+          <a href="./stress.html">Basic</a>
+          <a href="./stress-advanced.html" aria-current="page">Advanced</a>
+          <a href="./stress-boundary.html">Boundary</a>
+          <a href="./stress-edge.html">Edge cases</a>
+        </nav>
+      </header>
+
+      <section class="stress-summary" aria-live="polite"></section>
+      <section class="stress-groups" aria-label="Advanced case groups"></section>
+    </main>
+  </body>
+</html>

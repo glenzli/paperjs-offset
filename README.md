@@ -2,6 +2,22 @@
 
 Offset geometry helpers for [Paper.js](https://paperjs.org/).
 
+[![paperjs-offset preview](public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
+
+[Open the live demo](https://glenzli.github.io/paperjs-offset/) · [Report an issue](https://github.com/glenzli/paperjs-offset/issues)
+
+Run the live preview locally:
+
+```sh
+npm run demo:serve
+```
+
+The local server prints and serves:
+
+```txt
+http://localhost:4173/
+```
+
 Use the named functions for new code:
 
 ```ts
@@ -216,9 +232,7 @@ const outline = paperjsOffset.offsetStroke(path, 8, {
 
 ## Demo
 
-[![paperjs-offset demo examples](public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
-
-[Open the live demo](https://glenzli.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The boundary gallery is available from the same demo site and groups deterministic stress cases by shape family.
+[Open the live demo](https://glenzli.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The gallery is split into basic, advanced, boundary, and edge-case pages so each page renders a smaller deterministic case set.
 
 Run the demos locally:
 

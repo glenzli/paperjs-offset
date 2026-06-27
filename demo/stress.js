@@ -80,6 +80,23 @@
     };
   }
 
+  function splitGroups(value) {
+    return (value || '')
+      .split(',')
+      .map(function(group) {
+        return group.trim();
+      })
+      .filter(Boolean);
+  }
+
+  function getSelectedGroups() {
+    var params = new URLSearchParams(window.location.search);
+    var queryGroups = splitGroups(params.get('groups'));
+    var pageGroups = splitGroups(document.body.dataset.stressGroups);
+    var groups = queryGroups.length > 0 ? queryGroups : pageGroups;
+    return groups.length > 0 ? groups : null;
+  }
+
   function renderCase(testCase, container) {
     var card = document.createElement('article');
     var canvas = document.createElement('canvas');
@@ -169,7 +186,16 @@
   function renderStressCorpus() {
     var container = document.querySelector('.stress-groups');
     var summary = document.querySelector('.stress-summary');
-    var cases = createStressCases(paper);
+    var selectedGroups = getSelectedGroups();
+    var selectedGroupSet = selectedGroups
+      ? selectedGroups.reduce(function(result, group) {
+        result[group] = true;
+        return result;
+      }, {})
+      : null;
+    var cases = createStressCases(paper).filter(function(testCase) {
+      return !selectedGroupSet || selectedGroupSet[testCase.kind];
+    });
     var grouped = {};
     var counts = {
       ok: 0,

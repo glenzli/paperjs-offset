@@ -6,28 +6,31 @@
     <title>paperjs-offset boundary gallery</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="./demo.css">
-    <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js" onerror="document.write('&lt;script src=&quot;./vendor/paper-full.min.js&quot;&gt;&lt;\\/script&gt;')"></script>
     <script src="./paperjs-offset.js"></script>
     <script src="./stress-cases.js"></script>
     <script src="./stress.js" defer></script>
   </head>
-  <body>
+  <body data-stress-groups="closed-offset,smooth-offset">
     <main class="page">
       <header class="page-header">
         <p class="eyebrow">paperjs-offset</p>
-        <h1>Boundary gallery</h1>
+        <h1>Basic gallery</h1>
         <p class="intro">
-          A grouped deterministic corpus of generated offset cases rendered with <code>algorithm: 'auto'</code>.
+          The lighter deterministic groups: closed polygon offsets and smooth curve offsets.
         </p>
         <nav class="demo-nav" aria-label="Demo pages">
           <a href="./preview.html">Preview</a>
           <a href="./index.html">Guide</a>
-          <a href="./stress.html" aria-current="page">Boundary gallery</a>
+          <a href="./stress.html" aria-current="page">Basic</a>
+          <a href="./stress-advanced.html">Advanced</a>
+          <a href="./stress-boundary.html">Boundary</a>
+          <a href="./stress-edge.html">Edge cases</a>
         </nav>
       </header>
 
       <section class="stress-summary" aria-live="polite"></section>
-      <section class="stress-groups" aria-label="Boundary case groups"></section>
+      <section class="stress-groups" aria-label="Basic case groups"></section>
     </main>
   </body>
 </html>
