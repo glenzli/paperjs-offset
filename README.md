@@ -222,8 +222,10 @@ interface OffsetQuality {
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@1.0.8/dist/index.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@2/dist/index.umd.min.js"></script>
 ```
+
+这里使用 `@2` 跟随 v2 的最新兼容版本。如果需要完全可复现的构建，可以 pin 到具体版本，例如 `paperjs-offset@2.1.0`。
 
 使用 `paperjsOffset` 全局对象访问当前 API：
 
@@ -569,8 +571,10 @@ For browser pages, load Paper.js first and then the browser build:
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/paper@0.12.18/dist/paper-full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@1.0.8/dist/index.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/paperjs-offset@2/dist/index.umd.min.js"></script>
 ```
+
+This uses `@2` to follow the latest compatible v2 release. Pin an exact version such as `paperjs-offset@2.1.0` when you need fully reproducible builds.
 
 Use the `paperjsOffset` global for the current API:
 
