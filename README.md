@@ -341,7 +341,7 @@ npm run release:major
 npm run release:ship
 ```
 
-`release:ship` 要求当前提交带有匹配当前版本号的 tag，会先检查 `npm whoami` 和 `gh auth status`，再重新运行 `release:check`，然后 `git push origin HEAD --follow-tags`、`npm publish`，最后通过 GitHub CLI 执行 `gh release create --generate-notes`。如果 npm 发布需要 2FA，可以运行 `npm run release:ship -- --otp=123456`。
+`release:ship` 要求当前提交带有匹配当前版本号的 tag，会先检查 `npm whoami` 和 `gh auth status`，再重新运行 `release:check`，然后显式推送当前分支和版本 tag、用官方 npm registry 执行 `npm publish`，最后通过 GitHub CLI 执行 `gh release create --generate-notes`。如果 npm 发布需要 2FA，可以运行 `npm run release:ship -- --otp=123456`。
 
 `release:check` 会运行 typecheck、测试、`npm audit` 和 `npm pack --dry-run --ignore-scripts`。`npm test` 已经先完成构建，因此 pack 校验不依赖 npm lifecycle。直接执行 `npm publish` 时，`prepublishOnly` 也会运行同一套 release check。
 
@@ -688,7 +688,7 @@ After verifying the version commit and tag, ship the release:
 npm run release:ship
 ```
 
-`release:ship` requires the current commit to have the tag matching the current package version. It checks `npm whoami` and `gh auth status`, reruns `release:check`, then runs `git push origin HEAD --follow-tags`, `npm publish`, and `gh release create --generate-notes` through the GitHub CLI. If npm publish requires 2FA, run `npm run release:ship -- --otp=123456`.
+`release:ship` requires the current commit to have the tag matching the current package version. It checks `npm whoami` and `gh auth status`, reruns `release:check`, explicitly pushes the current branch and version tag, publishes to the official npm registry, and runs `gh release create --generate-notes` through the GitHub CLI. If npm publish requires 2FA, run `npm run release:ship -- --otp=123456`.
 
 `release:check` runs typecheck, tests, `npm audit`, and `npm pack --dry-run --ignore-scripts`. `npm test` builds first, so the pack check does not depend on npm lifecycle scripts. Direct `npm publish` also runs the same release check through `prepublishOnly`.
 

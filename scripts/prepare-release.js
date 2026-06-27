@@ -83,6 +83,6 @@ try {
 run('npm', ['run', 'release:check']);
 run('git', ['add', 'package.json', 'package-lock.json']);
 run('git', ['commit', '-m', `chore: release ${tag}`]);
-run('git', ['tag', tag]);
+run('git', ['tag', '-a', tag, '-m', tag]);
 
 console.log(`Prepared ${tag}. Run npm run release:ship when ready to publish.`);

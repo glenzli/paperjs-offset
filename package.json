@@ -48,7 +48,7 @@
     "release:minor": "npm run release:prepare -- minor",
     "release:patch": "npm run release:prepare -- patch",
     "release:ship": "node scripts/ship-release.js",
-    "release:publish": "npm publish"
+    "release:publish": "npm publish --registry=https://registry.npmjs.org"
   },
   "devDependencies": {
     "@rollup/plugin-terser": "1.0.0",

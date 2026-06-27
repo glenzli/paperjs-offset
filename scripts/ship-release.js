@@ -52,7 +52,8 @@ assertTagPointsAtHead();
 run('npm', ['whoami', '--registry=https://registry.npmjs.org']);
 run('gh', ['auth', 'status']);
 run('npm', ['run', 'release:check']);
-run('git', ['push', 'origin', 'HEAD', '--follow-tags']);
+run('git', ['push', 'origin', 'HEAD']);
+run('git', ['push', 'origin', tag]);
 run('npm', ['run', 'release:publish', '--', ...publishArgs]);
 run('gh', ['release', 'create', tag, '--verify-tag', '--generate-notes', '--title', tag]);
 
