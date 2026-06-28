@@ -4,6 +4,12 @@
 
 Language: [English](#english) | [中文](#中文)
 
+> **Temporary notice / 临时提示**
+>
+> **EN:** The GitHub Pages demo may be unavailable for now because the maintainer's GitHub account has unexpectedly been flagged. The npm package and repository content are still available; this is an account-status issue, not a project shutdown.
+>
+> **中文：** 由于维护者 GitHub 账号当前被异常标记（flagged），GitHub Pages demo 可能暂时无法访问。npm 包和仓库内容仍可使用；这是账号状态问题，不是项目停止维护或下架。
+
 <a id="中文"></a>
 
 ## 中文
