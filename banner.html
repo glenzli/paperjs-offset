@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>paperjs-offset banner</title>
+    <link rel="icon" href="data:,">
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        min-width: 320px;
+        min-height: 100%;
+        margin: 0;
+        background: #ffffff;
+      }
+
+      body {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        overflow: hidden;
+        color: #202124;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      canvas {
+        display: block;
+        width: min(100vw, 160vh);
+        height: min(100vh, 62.5vw);
+        aspect-ratio: 16 / 10;
+        background: #ffffff;
+      }
+
+      .load-error {
+        display: none;
+        width: min(100% - 40px, 720px);
+        padding: 18px 20px;
+        border: 1px solid #d9e0e5;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 14px 34px rgba(27, 43, 52, 0.08);
+      }
+
+      .load-error strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .load-error code {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="banner-canvas" width="1600" height="1000" aria-label="paperjs-offset generated banner"></canvas>
+    <p id="load-error" class="load-error">
+      <strong>Unable to load banner dependencies.</strong>
+      Build the local bundle with <code>npm run build</code>, then open this file again.
+    </p>
+
+    <script>
+      (function() {
+        var WIDTH = 1600;
+        var HEIGHT = 1000;
+        var TAU = Math.PI * 2;
+
+        var paperSources = [
+          './node_modules/paper/dist/paper-full.min.js'
+        ];
+        var offsetSources = [
+          './dist/index.umd.js'
+        ];
+
+        var palette = {
+          ink: '#101820',
+          mutedInk: '#334155',
+          coral: '#f43f5e',
+          amber: '#f59e0b',
+          cyan: '#0891b2',
+          teal: '#0f766e',
+          blue: '#2563eb',
+          violet: '#7c3aed',
+          lime: '#65a30d'
+        };
+
+        var contourColors = [
+          palette.violet,
+          palette.blue,
+          palette.cyan,
+          palette.teal,
+          palette.lime,
+          palette.amber,
+          palette.coral
+        ];
+
+        function loadScript(src) {
+          return new Promise(function(resolve, reject) {
+            var script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+
+        function loadAny(sources, ready) {
+          var index = 0;
+
+          function next() {
+            if (ready()) {
+              return Promise.resolve();
+            }
+            if (index >= sources.length) {
+              return Promise.reject(new Error('Unable to load script'));
+            }
+            return loadScript(sources[index++]).then(function() {
+              return ready() ? undefined : next();
+            }, next);
+          }
+
+          return next();
+        }
+
+        function showLoadError() {
+          document.getElementById('banner-canvas').style.display = 'none';
+          document.getElementById('load-error').style.display = 'block';
+        }
+
+        function showRenderError(error) {
+          var errorNode = document.getElementById('load-error');
+          document.getElementById('banner-canvas').style.display = 'none';
+          errorNode.style.display = 'block';
+          errorNode.innerHTML = '<strong>Unable to render banner.</strong>' +
+            '<span>' + (error && error.message ? error.message : 'Unknown render error') + '</span>';
+        }
+
+        function hexToRgba(hex, alpha) {
+          var value = hex.replace('#', '');
+          var red = parseInt(value.slice(0, 2), 16);
+          var green = parseInt(value.slice(2, 4), 16);
+          var blue = parseInt(value.slice(4, 6), 16);
+          return 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + alpha + ')';
+        }
+
+        function setStyle(item, style) {
+          Object.keys(style).forEach(function(key) {
+            item[key] = style[key];
+          });
+        }
+
+        function makePolarFlower(center, radius, amplitude, lobes, ripple, rippleLobes, steps, rotation) {
+          var segments = [];
+          for (var i = 0; i < steps; i += 1) {
+            var angle = rotation + TAU * i / steps;
+            var localRadius = radius +
+              Math.sin(angle * lobes) * amplitude +
+              Math.sin(angle * rippleLobes + 0.7) * ripple;
+            segments.push([
+              center[0] + Math.cos(angle) * localRadius,
+              center[1] + Math.sin(angle) * localRadius
+            ]);
+          }
+          var path = new paper.Path({ segments: segments, closed: true, insert: false });
+          path.smooth({ type: 'continuous' });
+          path.reduce({});
+          return path;
+        }
+
+        function makeRibbon(segments) {
+          var path = new paper.Path({ segments: segments, closed: false, insert: false });
+          path.smooth({ type: 'continuous' });
+          return path;
+        }
+
+        function makeWavePath(y, amplitude, phase, slope) {
+          var segments = [];
+          for (var i = 0; i < 15; i += 1) {
+            var x = -90 + i * ((WIDTH + 180) / 14);
+            var wave = Math.sin(i * 0.88 + phase) * amplitude +
+              Math.sin(i * 1.74 + phase * 0.7) * amplitude * 0.28;
+            segments.push([x, y + wave + (i - 7) * slope]);
+          }
+          return makeRibbon(segments);
+        }
+
+        function makeOrbitPath(center, radiusX, radiusY, phase, steps) {
+          var segments = [];
+          for (var i = 0; i < steps; i += 1) {
+            var t = TAU * i / (steps - 1);
+            var wobble = 1 + Math.sin(t * 5 + phase) * 0.08;
+            segments.push([
+              center[0] + Math.cos(t + phase) * radiusX * wobble,
+              center[1] + Math.sin(t * 2 - phase) * radiusY * wobble
+            ]);
+          }
+          var path = new paper.Path({ segments: segments, closed: false, insert: false });
+          path.smooth({ type: 'continuous' });
+          return path;
+        }
+
+        function drawBackground() {
+          new paper.Path.Rectangle({
+            point: [0, 0],
+            size: [WIDTH, HEIGHT],
+            fillColor: '#ffffff',
+            strokeColor: null
+          });
+
+          for (var x = 80; x < WIDTH; x += 80) {
+            new paper.Path.Line({
+              from: [x, 0],
+              to: [x, HEIGHT],
+              strokeColor: 'rgba(16, 24, 32, 0.028)',
+              strokeWidth: 1
+            });
+          }
+
+          for (var y = 80; y < HEIGHT; y += 80) {
+            new paper.Path.Line({
+              from: [0, y],
+              to: [WIDTH, y],
+              strokeColor: 'rgba(16, 24, 32, 0.028)',
+              strokeWidth: 1
+            });
+          }
+        }
+
+        function fitGroup(group, center, maxSize) {
+          var bounds = group.bounds;
+          var scale = Math.min(maxSize[0] / bounds.width, maxSize[1] / bounds.height);
+          group.scale(scale);
+          group.position = new paper.Point(center[0], center[1]);
+        }
+
+        function drawOffsetLayer(source, distance, index, alpha) {
+          var layer = paperjsOffset.offset(source, distance, {
+            join: 'round',
+            limit: 4,
+            algorithm: 'robust',
+            insert: false
+          });
+          var color = contourColors[index % contourColors.length];
+          setStyle(layer, {
+            fillColor: hexToRgba(color, alpha),
+            strokeColor: color,
+            strokeWidth: distance < 0 ? 2 : 2.6
+          });
+          return layer;
+        }
+
+        function drawOffsetStack(source, distances, center, maxSize, alphaBase, sourceStyle) {
+          var layers = [];
+
+          distances.forEach(function(distance, index) {
+            var alpha = distance < 0 ? alphaBase + 0.035 : alphaBase + index * 0.008;
+            layers.push(drawOffsetLayer(source, distance, index, alpha));
+          });
+
+          setStyle(source, sourceStyle || {
+            fillColor: 'rgba(255, 255, 255, 0.76)',
+            strokeColor: palette.ink,
+            strokeWidth: 3.2
+          });
+          layers.push(source);
+
+          var group = new paper.Group(layers);
+          paper.project.activeLayer.addChild(group);
+          fitGroup(group, center, maxSize);
+          source.bringToFront();
+          return group;
+        }
+
+        function drawCentralPattern() {
+          var outer = makePolarFlower([0, 0], 178, 44, 8, 20, 17, 96, -0.08);
+          drawOffsetStack(
+            outer,
+            [92, 68, 46, 28, 14, -10, -22],
+            [800, 505],
+            [780, 640],
+            0.038,
+            {
+              fillColor: 'rgba(255, 255, 255, 0.82)',
+              strokeColor: palette.ink,
+              strokeWidth: 4
+            }
+          );
+
+          var core = makePolarFlower([0, 0], 58, 17, 8, 7, 19, 64, 0.17);
+          drawOffsetStack(
+            core,
+            [28, 16, 8, -6],
+            [800, 505],
+            [210, 210],
+            0.055,
+            {
+              fillColor: 'rgba(255, 255, 255, 0.92)',
+              strokeColor: palette.mutedInk,
+              strokeWidth: 2.6
+            }
+          );
+        }
+
+        function drawStrokeRibbon(path, widths, colors, alpha) {
+          var items = [];
+          widths.slice().sort(function(a, b) {
+            return b - a;
+          }).forEach(function(width, index) {
+            var outline = paperjsOffset.offsetStroke(path, width, {
+              join: 'round',
+              cap: 'round',
+              limit: 4,
+              algorithm: 'robust',
+              insert: false
+            });
+            setStyle(outline, {
+              fillColor: hexToRgba(colors[index % colors.length], alpha - index * 0.018),
+              strokeColor: colors[index % colors.length],
+              strokeWidth: 1.8
+            });
+            items.push(outline);
+          });
+
+          path.strokeColor = 'rgba(16, 24, 32, 0.45)';
+          path.strokeWidth = 2.4;
+          path.fillColor = null;
+          items.push(path);
+          return new paper.Group(items);
+        }
+
+        function drawRibbons() {
+          drawStrokeRibbon(
+            makeWavePath(162, 52, 0.2, 2.5),
+            [26, 16, 8],
+            [palette.cyan, palette.amber, palette.coral],
+            0.13
+          );
+
+          drawStrokeRibbon(
+            makeWavePath(840, 58, 1.1, -2),
+            [28, 18, 9],
+            [palette.violet, palette.teal, palette.blue],
+            0.12
+          );
+
+          drawStrokeRibbon(
+            makeWavePath(505, 42, 2.5, 1),
+            [18, 10, 5],
+            [palette.lime, palette.coral, palette.cyan],
+            0.09
+          );
+        }
+
+        function drawRosette(center, maxSize, rotation, colorA, colorB) {
+          var source = makePolarFlower([0, 0], 70, 22, 7, 8, 15, 56, rotation);
+          var group = drawOffsetStack(
+            source,
+            [34, 23, 13, -8],
+            center,
+            maxSize,
+            0.052,
+            {
+              fillColor: 'rgba(255, 255, 255, 0.78)',
+              strokeColor: palette.mutedInk,
+              strokeWidth: 2.4
+            }
+          );
+          group.children.forEach(function(child, index) {
+            if (index % 2 === 0) {
+              child.strokeColor = colorA;
+            } else if (index < group.children.length - 1) {
+              child.strokeColor = colorB;
+            }
+          });
+        }
+
+        function drawRosettes() {
+          drawRosette([240, 285], [230, 230], -0.16, palette.blue, palette.amber);
+          drawRosette([1348, 310], [210, 210], 0.11, palette.coral, palette.teal);
+          drawRosette([310, 770], [180, 180], 0.24, palette.violet, palette.lime);
+          drawRosette([1292, 745], [190, 190], -0.05, palette.cyan, palette.coral);
+        }
+
+        function drawOrbitLines() {
+          drawStrokeRibbon(
+            makeOrbitPath([800, 505], 430, 210, 0.2, 110),
+            [9, 5],
+            [palette.violet, palette.blue],
+            0.07
+          );
+          drawStrokeRibbon(
+            makeOrbitPath([800, 505], 510, 155, 1.4, 110),
+            [8, 4],
+            [palette.teal, palette.amber],
+            0.06
+          );
+        }
+
+        function drawPinMarks() {
+          var points = [
+            [528, 212, palette.coral],
+            [1078, 246, palette.blue],
+            [492, 804, palette.teal],
+            [1120, 790, palette.amber],
+            [785, 154, palette.violet],
+            [806, 858, palette.lime],
+            [186, 536, palette.cyan],
+            [1412, 556, palette.coral]
+          ];
+
+          points.forEach(function(item) {
+            var ring = new paper.Path.Circle({
+              center: [item[0], item[1]],
+              radius: 9,
+              fillColor: '#ffffff',
+              strokeColor: item[2],
+              strokeWidth: 2
+            });
+            var outer = paperjsOffset.offset(ring, 8, {
+              join: 'round',
+              algorithm: 'robust',
+              insert: false
+            });
+            outer.fillColor = hexToRgba(item[2], 0.08);
+            outer.strokeColor = item[2];
+            outer.strokeWidth = 1.5;
+            paper.project.activeLayer.addChild(outer);
+            ring.bringToFront();
+          });
+        }
+
+        function drawBanner() {
+          var canvas = document.getElementById('banner-canvas');
+          paper.setup(canvas);
+          paper.view.viewSize = new paper.Size(WIDTH, HEIGHT);
+          paper.project.activeLayer.removeChildren();
+
+          drawBackground();
+          drawRibbons();
+          drawOrbitLines();
+          drawRosettes();
+          drawCentralPattern();
+          drawPinMarks();
+
+          paper.view.update();
+          window.paperjsOffsetBannerReady = true;
+        }
+
+        function init() {
+          loadAny(paperSources, function() {
+            return !!window.paper;
+          }).then(function() {
+            return loadAny(offsetSources, function() {
+              return !!window.paperjsOffset;
+            });
+          }).then(function() {
+            try {
+              drawBanner();
+            } catch (error) {
+              showRenderError(error);
+            }
+          }, showLoadError);
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', init);
+        } else {
+          init();
+        }
+      })();
+    </script>
+  </body>
+</html>

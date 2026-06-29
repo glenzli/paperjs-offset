@@ -1,6 +1,6 @@
 # paperjs-offset
 
-![paperjs-offset preview](https://raw.githubusercontent.com/glenzli/paperjs-offset/master/public/preview.jpg)
+![paperjs-offset preview](public/preview.jpg)
 
 Language: [English](#english) | [中文](#中文)
 
