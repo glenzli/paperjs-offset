@@ -1,0 +1,113 @@
+{
+  "schema": "paperjs-offset-playground@1",
+  "title": {
+    "en": "Offset playground",
+    "zh": "偏移 Playground"
+  },
+  "summary": {
+    "en": "A deterministic playground schema for experimenting with operation, distance, join, cap, and algorithm choices.",
+    "zh": "用于实验 operation、distance、join、cap 和 algorithm 的确定性 playground schema。"
+  },
+  "defaultPreset": "closed-star-round",
+  "presetRefs": [
+    {
+      "id": "closed-star-round",
+      "caseId": "star-positive-8",
+      "title": {
+        "en": "Closed star, round join",
+        "zh": "闭合星形，round 连接"
+      }
+    },
+    {
+      "id": "smooth-blob-inward",
+      "caseId": "smooth-blob-in-5",
+      "title": {
+        "en": "Smooth blob inward",
+        "zh": "平滑形状向内偏移"
+      }
+    },
+    {
+      "id": "compound-hole",
+      "caseId": "hole-shape-4",
+      "title": {
+        "en": "Compound path with holes",
+        "zh": "带孔复合路径"
+      }
+    },
+    {
+      "id": "open-curve-stroke",
+      "caseId": "open-curve-6",
+      "title": {
+        "en": "Open curve stroke outline",
+        "zh": "开放曲线描边轮廓"
+      }
+    },
+    {
+      "id": "hairpin-stroke",
+      "caseId": "hairpin-stroke-7",
+      "title": {
+        "en": "Hairpin stroke boundary",
+        "zh": "发夹形描边边界"
+      }
+    },
+    {
+      "id": "tight-cubic-inward",
+      "caseId": "tight-cubic-in",
+      "title": {
+        "en": "Tight cubic inward",
+        "zh": "紧凑三次曲线向内偏移"
+      }
+    }
+  ],
+  "controls": [
+    {
+      "id": "distance",
+      "type": "range",
+      "label": {
+        "en": "Distance",
+        "zh": "距离"
+      },
+      "min": -48,
+      "max": 48,
+      "step": 1
+    },
+    {
+      "id": "join",
+      "type": "select",
+      "label": {
+        "en": "Join",
+        "zh": "连接"
+      },
+      "options": ["miter", "bevel", "round"]
+    },
+    {
+      "id": "cap",
+      "type": "select",
+      "label": {
+        "en": "Cap",
+        "zh": "端点"
+      },
+      "options": ["butt", "round"]
+    },
+    {
+      "id": "algorithm",
+      "type": "select",
+      "label": {
+        "en": "Algorithm",
+        "zh": "算法"
+      },
+      "options": ["auto", "adaptive", "robust", "split", "legacy"]
+    },
+    {
+      "id": "limit",
+      "type": "number",
+      "label": {
+        "en": "Miter limit",
+        "zh": "Miter 限制"
+      },
+      "min": 1,
+      "max": 12,
+      "step": 1
+    }
+  ]
+}

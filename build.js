@@ -1,6 +1,5 @@
 const { rollup } = require('rollup');
 const terser = require('@rollup/plugin-terser');
-const { copyFile } = require('fs/promises');
 const pkg = require('./package.json');
 
 const external = ['paper'];
@@ -8,9 +7,6 @@ const globals = { paper: 'paper' };
 const libraryName = 'paperjsOffset';
 const umdBundle = 'dist/index.umd.js';
 const minifiedUmdBundle = 'dist/index.umd.min.js';
-const demoBrowserBundle = 'demo/index.umd.js';
-const demoBrowserBundleMap = 'demo/index.umd.js.map';
-const demoMinifiedBrowserBundle = 'demo/index.umd.min.js';
 const browserCompatibilityFooter = `
 ;(function(global) {
   if (!global || !global.paperjsOffset) return;
@@ -70,17 +66,8 @@ async function buildBrowserBundles() {
   ], [terser()]);
 }
 
-async function syncDemoBundles() {
-  await Promise.all([
-    copyFile(umdBundle, demoBrowserBundle),
-    copyFile(`${umdBundle}.map`, demoBrowserBundleMap),
-    copyFile(minifiedUmdBundle, demoMinifiedBrowserBundle),
-  ]);
-}
-
 async function build() {
   await Promise.all([buildLibraryBundles(), buildBrowserBundles()]);
-  await syncDemoBundles();
 }
 
 build().catch((error) => {

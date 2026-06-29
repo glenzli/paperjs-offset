@@ -1,7 +1,7 @@
 const assert = require('assert');
 const paper = require('paper');
 const { analyze, offset, offsetStroke } = require('../dist/index.cjs');
-const createStressCases = require('../demo/stress-cases.js');
+const createStressCases = require('../dev-site/fixtures/stress-cases.js');
 
 const algorithms = ['legacy', 'split', 'robust', 'adaptive', 'auto'];
 const criticalWarnings = new Set([

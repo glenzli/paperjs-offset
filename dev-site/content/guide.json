@@ -1,0 +1,97 @@
+{
+  "schema": "paperjs-offset-guide@1",
+  "title": {
+    "en": "Offset guide",
+    "zh": "偏移指南"
+  },
+  "summary": {
+    "en": "Six deterministic cards covering closed offsets, join styles, stroke outlines, compound paths, automatic strategy selection, and quality scoring.",
+    "zh": "六个确定性示例，覆盖闭合路径偏移、连接样式、描边轮廓、复合路径、自动策略选择和质量评分。"
+  },
+  "cards": [
+    {
+      "id": "offset-direction",
+      "demoId": "offset-direction",
+      "step": "01",
+      "title": {
+        "en": "Positive expands, negative contracts",
+        "zh": "正值扩张，负值收缩"
+      },
+      "description": {
+        "en": "Closed paths can be offset outward or inward. The source shape stays visible so distance and direction are easy to compare.",
+        "zh": "闭合路径可以向外或向内偏移。源形状会保留显示，方便比较距离和方向。"
+      },
+      "code": "const expanded = offset(source, 18, { join: 'round' });\nconst contracted = offset(source, -18, { join: 'round' });"
+    },
+    {
+      "id": "join-styles",
+      "demoId": "join-styles",
+      "step": "02",
+      "title": {
+        "en": "Joins decide how corners are rebuilt",
+        "zh": "连接样式决定角点如何重建"
+      },
+      "description": {
+        "en": "Miter, bevel, and round joins produce different corner geometry. Miter joins also respect the configured limit.",
+        "zh": "miter、bevel 和 round 会生成不同的角点几何；miter 还会受 limit 限制。"
+      },
+      "code": "offset(path, 22, { join: 'miter', limit: 3 });\noffset(path, 22, { join: 'bevel' });\noffset(path, 22, { join: 'round' });"
+    },
+    {
+      "id": "stroke-outline",
+      "demoId": "stroke-outline",
+      "step": "03",
+      "title": {
+        "en": "Strokes become filled outlines",
+        "zh": "描边可以转成可填充轮廓"
+      },
+      "description": {
+        "en": "offsetStroke handles open and closed paths. Open-path terminals use butt or round caps.",
+        "zh": "offsetStroke 支持开放路径和闭合路径；开放路径端点可以使用 butt 或 round cap。"
+      },
+      "code": "const outline = offsetStroke(openPath, 18, {\n  join: 'round',\n  cap: 'round'\n});"
+    },
+    {
+      "id": "compound-paths",
+      "demoId": "compound-paths",
+      "step": "04",
+      "title": {
+        "en": "Boolean shapes need normalization",
+        "zh": "布尔形状需要规范化"
+      },
+      "description": {
+        "en": "Compound paths are normalized before and after offsetting, which helps repeated offsets stay coherent.",
+        "zh": "复合路径在偏移前后会经过规范化处理，这能让重复偏移保持更稳定。"
+      },
+      "code": "const source = circleA.unite(circleB).unite(circleC);\nconst expanded = offset(source, 16, { join: 'round' });\nconst inner = offset(source, -14, { join: 'round' });\noffset(inner, -10, { join: 'round' });"
+    },
+    {
+      "id": "auto-strategy",
+      "demoId": "auto-strategy",
+      "step": "05",
+      "title": {
+        "en": "Auto chooses the cleaner result",
+        "zh": "auto 会选择更干净的结果"
+      },
+      "description": {
+        "en": "The auto strategy compares candidate results with the same scoring function exposed by analyze.",
+        "zh": "auto 策略会用 analyze 暴露的同一套评分函数比较候选结果。"
+      },
+      "code": "const legacy = offset(source, 24, { algorithm: 'legacy' });\nconst result = offset(source, 24, { algorithm: 'auto' });\nanalyze(source, result, 24);"
+    },
+    {
+      "id": "quality-score",
+      "demoId": "quality-score",
+      "step": "06",
+      "title": {
+        "en": "Quality warnings make hard cases inspectable",
+        "zh": "质量警告让困难 case 可检查"
+      },
+      "description": {
+        "en": "analyze reports score, self-intersections, containment errors, and other warning signals for generated paths.",
+        "zh": "analyze 会报告评分、自交、包含错误和其他结果质量信号。"
+      },
+      "code": "const result = offset(path, -12, {\n  join: 'round',\n  limit: 4,\n  algorithm: 'auto'\n});\nconst quality = analyze(path, result, -12);"
+    }
+  ]
+}

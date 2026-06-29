@@ -20,18 +20,6 @@ Language: [English](#english) | [中文](#中文)
 
 [反馈问题](https://github.com/glenzli/paperjs-offset/issues)
 
-本地运行预览：
-
-```sh
-npm run demo:serve
-```
-
-本地服务会输出并监听：
-
-```txt
-http://localhost:4173/
-```
-
 新代码推荐直接使用命名函数：
 
 ```ts
@@ -246,18 +234,54 @@ const outline = paperjsOffset.offsetStroke(path, 8, {
 });
 ```
 
-### Demo
+### Dev Site Export Contract
 
-本地 demo 可以查看偏移方向、连接样式、描边轮廓、复合路径、策略选择和质量评分。Gallery 已拆成 basic、advanced、boundary 和 edge-case 页面，以减少单页需要渲染的确定性 case 数量。
+本仓库不再维护独立 demo 页面。项目侧只负责导出内容、数据、截图资源和可挂载 runtime，页面布局和路由由外部 dev-site 统一组织。
 
-本地运行 demo：
+生成标准输出：
 
 ```sh
-npm run demo:serve
+npm run build:dev-site
 ```
 
-根目录 `index.html` 会重定向到 `demo/index.html`。`npm run build` 会将浏览器 bundle 写入 `dist/`，并同步生成文件到 `demo/`，因此本地 demo 和发布产物使用的是同一套构建结果。
-项目不再包含 GitHub Pages 部署脚本；demo 作为仓库内的本地教学和回归验证页面维护。
+输出结构：
+
+```text
+dist/dev-site/
+├── manifest.json
+├── app/
+├── assets/
+│   ├── banner.png
+│   ├── guide.png
+│   ├── gallery.png
+│   └── playground.png
+├── data/
+│   ├── guide.json
+│   ├── gallery.json
+│   └── playground.json
+└── runtime/
+    └── paperjs-offset-devsite.esm.js
+```
+
+`manifest.json` 使用 `dev-site-project@1` schema，声明项目摘要、标签、链接、截图、数据文件和 runtime。`gallery.json` 将压力测试 case 导出为确定性的 SVG path fixture，并包含 operation、distance、options 和 expected quality。`playground.json` 从 gallery case 派生 preset 和 control schema。
+
+runtime 导出三个挂载函数：
+
+```js
+import {
+  mountGallery,
+  mountGuide,
+  mountPlayground
+} from './runtime/paperjs-offset-devsite.esm.js';
+
+mountGuide(container, guideData, {
+  basePath: '/projects/paperjs-offset/',
+  paper,
+  paperjsOffset
+});
+```
+
+runtime 不依赖 `window.onload`，只操作传入的 `container`，CSS 类名使用 `po-` 前缀。资源路径均为相对路径，或通过 `basePath` 解析。交互依赖可以通过 `options.paper` 和 `options.paperjsOffset` 传入；如果依赖缺失，dev-site 仍可使用 `assets/*.png` 做静态 fallback。
 
 ### 兼容 API
 
@@ -360,18 +384,6 @@ MIT。详见 [LICENSE](LICENSE)。
 `paperjs-offset` provides offset geometry helpers for [Paper.js](https://paperjs.org/). It generates closed path offsets, filled stroke outlines, and quality reports for generated offset geometry.
 
 [Report an issue](https://github.com/glenzli/paperjs-offset/issues)
-
-Run the live preview locally:
-
-```sh
-npm run demo:serve
-```
-
-The local server prints and serves:
-
-```txt
-http://localhost:4173/
-```
 
 Use the named functions for new code:
 
@@ -587,18 +599,54 @@ const outline = paperjsOffset.offsetStroke(path, 8, {
 });
 ```
 
-### Demo
+### Dev Site Export Contract
 
-The local demos show offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The gallery is split into basic, advanced, boundary, and edge-case pages so each page renders a smaller deterministic case set.
+This repository no longer maintains standalone demo pages. The project exports content, data, screenshots, and mountable runtime modules; the external dev-site owns layout and routing.
 
-Run the demos locally:
+Build the standard export:
 
 ```sh
-npm run demo:serve
+npm run build:dev-site
 ```
 
-The root `index.html` redirects to `demo/index.html`. `npm run build` writes browser bundles to `dist/` and syncs the generated files into `demo/`, so local demos and published artifacts exercise the same build.
-The project no longer ships a GitHub Pages deployment script; demos are maintained as local teaching and regression pages inside the repository.
+Output:
+
+```text
+dist/dev-site/
+├── manifest.json
+├── app/
+├── assets/
+│   ├── banner.png
+│   ├── guide.png
+│   ├── gallery.png
+│   └── playground.png
+├── data/
+│   ├── guide.json
+│   ├── gallery.json
+│   └── playground.json
+└── runtime/
+    └── paperjs-offset-devsite.esm.js
+```
+
+`manifest.json` uses the `dev-site-project@1` schema and declares project copy, tags, links, screenshots, data files, and runtime. `gallery.json` exports stress cases as deterministic SVG path fixtures with operation, distance, options, and expected quality metadata. `playground.json` derives presets and controls from gallery cases.
+
+The runtime exports three mount functions:
+
+```js
+import {
+  mountGallery,
+  mountGuide,
+  mountPlayground
+} from './runtime/paperjs-offset-devsite.esm.js';
+
+mountGuide(container, guideData, {
+  basePath: '/projects/paperjs-offset/',
+  paper,
+  paperjsOffset
+});
+```
+
+The runtime does not depend on `window.onload`, only mutates the provided `container`, and prefixes CSS classes with `po-`. Asset paths are relative, or resolved through `basePath`. Interactive rendering can receive dependencies through `options.paper` and `options.paperjsOffset`; if dependencies are missing, the dev-site can still use `assets/*.png` as static fallback.
 
 ### Compatibility API
 
