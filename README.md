@@ -1,14 +1,14 @@
 # paperjs-offset
 
-[![paperjs-offset preview](https://raw.githubusercontent.com/glenzli/paperjs-offset/master/public/preview.jpg)](https://glenzli.github.io/paperjs-offset/)
+![paperjs-offset preview](https://raw.githubusercontent.com/glenzli/paperjs-offset/master/public/preview.jpg)
 
 Language: [English](#english) | [中文](#中文)
 
 > **Temporary notice / 临时提示**
 >
-> **EN:** The GitHub Pages demo may be unavailable for now because the maintainer's GitHub account has unexpectedly been flagged. The maintainer is appealing the account status, but the recovery timeline is currently unknown. The npm package and repository content are still available; this is an account-status issue, not a project shutdown.
+> **EN:** The GitHub-hosted project page may be temporarily unavailable because the maintainer's GitHub account has unexpectedly been flagged. The maintainer is appealing the account status, but the recovery timeline is currently unknown. The npm package remains available; this is an account-status issue, not a project shutdown.
 >
-> **中文：** 由于维护者 GitHub 账号当前被异常标记（flagged），GitHub Pages demo 可能暂时无法访问。维护者正在申诉账号状态，但恢复时间尚不可知。npm 包和仓库内容仍可使用；这是账号状态问题，不是项目停止维护或下架。
+> **中文：** 由于维护者 GitHub 账号当前被异常标记（flagged），GitHub 托管的项目页面可能暂时无法访问。维护者正在申诉账号状态，但恢复时间尚不可知。npm 包仍可使用；这是账号状态问题，不是项目停止维护或下架。
 
 <a id="中文"></a>
 
@@ -18,7 +18,7 @@ Language: [English](#english) | [中文](#中文)
 
 `paperjs-offset` 是 [Paper.js](https://paperjs.org/) 的路径偏移辅助库，用于生成闭合路径偏移、描边轮廓，以及分析偏移结果质量。
 
-[打开在线 Demo](https://glenzli.github.io/paperjs-offset/) · [反馈问题](https://github.com/glenzli/paperjs-offset/issues)
+[反馈问题](https://github.com/glenzli/paperjs-offset/issues)
 
 本地运行预览：
 
@@ -248,7 +248,7 @@ const outline = paperjsOffset.offsetStroke(path, 8, {
 
 ### Demo
 
-[打开在线 Demo](https://glenzli.github.io/paperjs-offset/) 可以查看偏移方向、连接样式、描边轮廓、复合路径、策略选择和质量评分。Gallery 已拆成 basic、advanced、boundary 和 edge-case 页面，以减少单页需要渲染的确定性 case 数量。
+本地 demo 可以查看偏移方向、连接样式、描边轮廓、复合路径、策略选择和质量评分。Gallery 已拆成 basic、advanced、boundary 和 edge-case 页面，以减少单页需要渲染的确定性 case 数量。
 
 本地运行 demo：
 
@@ -257,15 +257,7 @@ npm run demo:serve
 ```
 
 根目录 `index.html` 会重定向到 `demo/index.html`。`npm run build` 会将浏览器 bundle 写入 `dist/`，并同步生成文件到 `demo/`，因此本地 demo 和发布产物使用的是同一套构建结果。
-
-线上 demo 由 GitHub Pages 部署。仓库需要在 GitHub 的 Settings -> Pages 中把 Source 设为 GitHub Actions；之后 `.github/workflows/pages.yml` 会在 `master` 分支推送或手动触发时运行：
-
-```sh
-npm ci
-npm run pages:build
-```
-
-`pages:build` 会重新构建包，把 `index.html`、`demo/` 和 `public/` 复制到 `.pages/`，并把锁定版本的 Paper.js 复制到 `.pages/demo/vendor/`。GitHub Pages workflow 只部署 demo 站点，不负责 npm 发布。
+项目不再包含 GitHub Pages 部署脚本；demo 作为仓库内的本地教学和回归验证页面维护。
 
 ### 兼容 API
 
@@ -367,7 +359,7 @@ MIT。详见 [LICENSE](LICENSE)。
 
 `paperjs-offset` provides offset geometry helpers for [Paper.js](https://paperjs.org/). It generates closed path offsets, filled stroke outlines, and quality reports for generated offset geometry.
 
-[Open the live demo](https://glenzli.github.io/paperjs-offset/) · [Report an issue](https://github.com/glenzli/paperjs-offset/issues)
+[Report an issue](https://github.com/glenzli/paperjs-offset/issues)
 
 Run the live preview locally:
 
@@ -597,7 +589,7 @@ const outline = paperjsOffset.offsetStroke(path, 8, {
 
 ### Demo
 
-[Open the live demo](https://glenzli.github.io/paperjs-offset/) to inspect offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The gallery is split into basic, advanced, boundary, and edge-case pages so each page renders a smaller deterministic case set.
+The local demos show offset direction, join styles, stroke outlines, compound paths, strategy selection, and quality scoring. The gallery is split into basic, advanced, boundary, and edge-case pages so each page renders a smaller deterministic case set.
 
 Run the demos locally:
 
@@ -606,15 +598,7 @@ npm run demo:serve
 ```
 
 The root `index.html` redirects to `demo/index.html`. `npm run build` writes browser bundles to `dist/` and syncs the generated files into `demo/`, so local demos and published artifacts exercise the same build.
-
-The live demo is deployed with GitHub Pages. Set the repository Pages source to GitHub Actions in GitHub Settings -> Pages; after that, `.github/workflows/pages.yml` runs on pushes to `master` and on manual dispatch:
-
-```sh
-npm ci
-npm run pages:build
-```
-
-`pages:build` rebuilds the package, copies `index.html`, `demo/`, and `public/` into `.pages/`, and copies the locked Paper.js build into `.pages/demo/vendor/`. The Pages workflow only deploys the demo site; it does not publish to npm.
+The project no longer ships a GitHub Pages deployment script; demos are maintained as local teaching and regression pages inside the repository.
 
 ### Compatibility API
 
