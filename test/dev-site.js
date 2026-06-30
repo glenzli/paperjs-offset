@@ -16,6 +16,12 @@ function assertRelativePath(value, label) {
   assert.ok(!/^[a-z]+:\/\//i.test(value), `${label} should not be absolute URL`);
 }
 
+function assertHashedJsPath(value, label) {
+  assertRelativePath(value, label);
+  assert.ok(/-[0-9a-f]{12}\.js$/.test(value), `${label} should include a content hash`);
+  assert.ok(fs.existsSync(path.join(output, value)), `${label} should exist`);
+}
+
 function assertPng(file) {
   const buffer = fs.readFileSync(path.join(output, file));
   assert.deepStrictEqual(Array.from(buffer.slice(0, 8)), [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], `${file} should be a PNG`);
@@ -29,7 +35,7 @@ function assertPng(file) {
 
   assert.strictEqual(manifest.schema, 'dev-site-project@1');
   assert.strictEqual(manifest.slug, 'paperjs-offset');
-  assert.strictEqual(manifest.runtime, 'runtime/paperjs-offset-devsite.esm.js');
+  assertHashedJsPath(manifest.runtime, 'runtime');
   assert.strictEqual(guide.cards.length, 6, 'guide should export six cards');
   assert.ok(gallery.cases.length >= 100, 'gallery should export the stress corpus');
   assert.ok(playground.presets.length >= 4, 'playground should export presets');
@@ -41,8 +47,8 @@ function assertPng(file) {
   });
   assertPng(manifest.assets.cover);
 
-  manifest.app.scripts.forEach((item) => assertRelativePath(item, `app script ${item}`));
-  manifest.app.modules.forEach((item) => assertRelativePath(item, `app module ${item}`));
+  manifest.app.scripts.forEach((item) => assertHashedJsPath(item, `app script ${item}`));
+  manifest.app.modules.forEach((item) => assertHashedJsPath(item, `app module ${item}`));
   Object.values(manifest.data).forEach((item) => assertRelativePath(item, `data path ${item}`));
   manifest.sections.forEach((section) => {
     if (section.data) {
@@ -50,6 +56,7 @@ function assertPng(file) {
     }
     if (section.runtime) {
       assertRelativePath(section.runtime, `section runtime ${section.type}`);
+      assert.strictEqual(section.runtime, manifest.runtime, `section runtime ${section.type} should reuse manifest runtime`);
     }
   });
 

@@ -1,4 +1,5 @@
 const fs = require('fs/promises');
+const crypto = require('crypto');
 const path = require('path');
 const zlib = require('zlib');
 const paper = require('paper');
@@ -408,10 +409,55 @@ async function writeJson(file, value) {
   await fs.writeFile(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function contentHash(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 12);
+}
+
+function hashedName(filename, buffer) {
+  const ext = path.extname(filename);
+  const basename = filename.slice(0, -ext.length);
+  return `${basename}-${contentHash(buffer)}${ext}`;
+}
+
+async function copyHashedFile(source, targetDir, filename) {
+  const buffer = await fs.readFile(source);
+  const outputName = hashedName(filename, buffer);
+  await fs.writeFile(path.join(targetDir, outputName), buffer);
+  return outputName;
+}
+
 async function copyApp() {
-  await fs.copyFile(path.join(root, 'dist', 'index.umd.min.js'), path.join(output, 'app', 'paperjs-offset.umd.min.js'));
-  await fs.copyFile(path.join(root, 'dist', 'index.mjs'), path.join(output, 'app', 'paperjs-offset.esm.js'));
-  await fs.copyFile(path.join(root, 'node_modules', 'paper', 'dist', 'paper-full.min.js'), path.join(output, 'app', 'paper-full.min.js'));
+  const appDir = path.join(output, 'app');
+  const [paper, umd, esm] = await Promise.all([
+    copyHashedFile(
+      path.join(root, 'node_modules', 'paper', 'dist', 'paper-full.min.js'),
+      appDir,
+      'paper-full.min.js'
+    ),
+    copyHashedFile(
+      path.join(root, 'dist', 'index.umd.min.js'),
+      appDir,
+      'paperjs-offset.umd.min.js'
+    ),
+    copyHashedFile(
+      path.join(root, 'dist', 'index.mjs'),
+      appDir,
+      'paperjs-offset.esm.js'
+    )
+  ]);
+  return {
+    scripts: [`app/${paper}`, `app/${umd}`],
+    modules: [`app/${esm}`]
+  };
+}
+
+async function copyRuntime() {
+  const filename = await copyHashedFile(
+    path.join(root, 'dev-site', 'runtime', 'paperjs-offset-devsite.esm.js'),
+    path.join(output, 'runtime'),
+    'paperjs-offset-devsite.esm.js'
+  );
+  return `runtime/${filename}`;
 }
 
 async function build() {
@@ -438,6 +484,10 @@ async function build() {
     cases: buildGalleryCases()
   };
   const playground = buildPlayground(playgroundSource, gallery);
+  const [app, runtime] = await Promise.all([
+    copyApp(),
+    copyRuntime()
+  ]);
   const manifest = {
     schema: 'dev-site-project@1',
     slug: 'paperjs-offset',
@@ -455,10 +505,7 @@ async function build() {
       gitlab: 'https://gitlab.com/glenzli/paperjs-offset',
       npm: 'https://www.npmjs.com/package/paperjs-offset'
     },
-    app: {
-      scripts: ['app/paper-full.min.js', 'app/paperjs-offset.umd.min.js'],
-      modules: ['app/paperjs-offset.esm.js']
-    },
+    app,
     assets: {
       cover: 'assets/banner.png',
       screenshots: [
@@ -472,22 +519,17 @@ async function build() {
       gallery: 'data/gallery.json',
       playground: 'data/playground.json'
     },
-    runtime: 'runtime/paperjs-offset-devsite.esm.js',
+    runtime,
     sections: [
       { type: 'markdown', id: 'intro' },
-      { type: 'guide', data: 'data/guide.json', runtime: 'runtime/paperjs-offset-devsite.esm.js' },
-      { type: 'playground', data: 'data/playground.json', runtime: 'runtime/paperjs-offset-devsite.esm.js' },
-      { type: 'gallery', data: 'data/gallery.json', runtime: 'runtime/paperjs-offset-devsite.esm.js' }
+      { type: 'guide', data: 'data/guide.json', runtime },
+      { type: 'playground', data: 'data/playground.json', runtime },
+      { type: 'gallery', data: 'data/gallery.json', runtime }
     ]
   };
 
   await Promise.all([
-    copyApp(),
     writeAssets(),
-    fs.copyFile(
-      path.join(root, 'dev-site', 'runtime', 'paperjs-offset-devsite.esm.js'),
-      path.join(output, 'runtime', 'paperjs-offset-devsite.esm.js')
-    ),
     writeJson(path.join(output, 'manifest.json'), manifest),
     writeJson(path.join(output, 'data', 'guide.json'), guide),
     writeJson(path.join(output, 'data', 'gallery.json'), gallery),

@@ -6,9 +6,9 @@ Language: [English](#english) | [中文](#中文)
 
 > **Temporary notice / 临时提示**
 >
-> **EN:** The GitHub-hosted project page may be temporarily unavailable because the maintainer's GitHub account has unexpectedly been flagged. The maintainer is appealing the account status, but the recovery timeline is currently unknown. The npm package remains available; this is an account-status issue, not a project shutdown.
+> **EN:** The GitHub-hosted project page may be temporarily unavailable because the maintainer's GitHub account has unexpectedly been flagged. The maintainer is appealing the account status, but the recovery timeline is currently unknown. During this period, use the [GitLab mirror](https://gitlab.com/glenzli/paperjs-offset) to view the project. The npm package remains available; this is an account-status issue, not a project shutdown.
 >
-> **中文：** 由于维护者 GitHub 账号当前被异常标记（flagged），GitHub 托管的项目页面可能暂时无法访问。维护者正在申诉账号状态，但恢复时间尚不可知。npm 包仍可使用；这是账号状态问题，不是项目停止维护或下架。
+> **中文：** 由于维护者 GitHub 账号当前被异常标记（flagged），GitHub 托管的项目页面可能暂时无法访问。维护者正在申诉账号状态，但恢复时间尚不可知。此期间可以通过 [GitLab 镜像](https://gitlab.com/glenzli/paperjs-offset) 查看项目。npm 包仍可使用；这是账号状态问题，不是项目停止维护或下架。
 
 <a id="中文"></a>
 
@@ -17,8 +17,6 @@ Language: [English](#english) | [中文](#中文)
 ### 简介
 
 `paperjs-offset` 是 [Paper.js](https://paperjs.org/) 的路径偏移辅助库，用于生成闭合路径偏移、描边轮廓，以及分析偏移结果质量。
-
-[反馈问题](https://github.com/glenzli/paperjs-offset/issues)
 
 新代码推荐直接使用命名函数：
 
@@ -250,6 +248,9 @@ npm run build:dev-site
 dist/dev-site/
 ├── manifest.json
 ├── app/
+│   ├── paper-full.min-<hash>.js
+│   ├── paperjs-offset.umd.min-<hash>.js
+│   └── paperjs-offset.esm-<hash>.js
 ├── assets/
 │   ├── banner.png
 │   ├── guide.png
@@ -260,10 +261,10 @@ dist/dev-site/
 │   ├── gallery.json
 │   └── playground.json
 └── runtime/
-    └── paperjs-offset-devsite.esm.js
+    └── paperjs-offset-devsite.esm-<hash>.js
 ```
 
-`manifest.json` 使用 `dev-site-project@1` schema，声明项目摘要、标签、链接、截图、数据文件和 runtime。`gallery.json` 将压力测试 case 导出为确定性的 SVG path fixture，并包含 operation、distance、options 和 expected quality。`playground.json` 从 gallery case 派生 preset 和 control schema。
+`manifest.json` 使用 `dev-site-project@1` schema，声明项目摘要、标签、链接、截图、数据文件、带内容 hash 的 JS 资源和 runtime。`gallery.json` 将压力测试 case 导出为确定性的 SVG path fixture，并包含 operation、distance、options 和 expected quality。`playground.json` 从 gallery case 派生 preset 和 control schema。
 
 runtime 导出三个挂载函数：
 
@@ -280,6 +281,8 @@ mountGuide(container, guideData, {
   paperjsOffset
 });
 ```
+
+示例中的 runtime 路径仅用于说明导出接口。实际集成时应使用 `manifest.runtime`，因为 `build:dev-site` 会为 JS/runtime 文件名加入内容 hash，避免静态缓存命中旧版本。
 
 runtime 不依赖 `window.onload`，只操作传入的 `container`，CSS 类名使用 `po-` 前缀。资源路径均为相对路径，或通过 `basePath` 解析。交互依赖可以通过 `options.paper` 和 `options.paperjsOffset` 传入；如果依赖缺失，dev-site 仍可使用 `assets/*.png` 做静态 fallback。
 
@@ -325,8 +328,6 @@ const outline = path.offsetStroke(8, { cap: 'round' });
 - 使用的是 `offset` 还是 `offsetStroke`
 - 预期图形或截图
 - 如果方便，附上 `analyze(...)` 输出
-
-请在 <https://github.com/glenzli/paperjs-offset/issues> 反馈问题。
 
 ### 开发
 
@@ -382,8 +383,6 @@ MIT。详见 [LICENSE](LICENSE)。
 ### Overview
 
 `paperjs-offset` provides offset geometry helpers for [Paper.js](https://paperjs.org/). It generates closed path offsets, filled stroke outlines, and quality reports for generated offset geometry.
-
-[Report an issue](https://github.com/glenzli/paperjs-offset/issues)
 
 Use the named functions for new code:
 
@@ -615,6 +614,9 @@ Output:
 dist/dev-site/
 ├── manifest.json
 ├── app/
+│   ├── paper-full.min-<hash>.js
+│   ├── paperjs-offset.umd.min-<hash>.js
+│   └── paperjs-offset.esm-<hash>.js
 ├── assets/
 │   ├── banner.png
 │   ├── guide.png
@@ -625,10 +627,10 @@ dist/dev-site/
 │   ├── gallery.json
 │   └── playground.json
 └── runtime/
-    └── paperjs-offset-devsite.esm.js
+    └── paperjs-offset-devsite.esm-<hash>.js
 ```
 
-`manifest.json` uses the `dev-site-project@1` schema and declares project copy, tags, links, screenshots, data files, and runtime. `gallery.json` exports stress cases as deterministic SVG path fixtures with operation, distance, options, and expected quality metadata. `playground.json` derives presets and controls from gallery cases.
+`manifest.json` uses the `dev-site-project@1` schema and declares project copy, tags, links, screenshots, data files, content-hashed JS assets, and runtime. `gallery.json` exports stress cases as deterministic SVG path fixtures with operation, distance, options, and expected quality metadata. `playground.json` derives presets and controls from gallery cases.
 
 The runtime exports three mount functions:
 
@@ -645,6 +647,8 @@ mountGuide(container, guideData, {
   paperjsOffset
 });
 ```
+
+The runtime path in this example only documents the exported interface. Integrations should read `manifest.runtime` because `build:dev-site` adds content hashes to JS/runtime filenames to avoid stale static-cache hits.
 
 The runtime does not depend on `window.onload`, only mutates the provided `container`, and prefixes CSS classes with `po-`. Asset paths are relative, or resolved through `basePath`. Interactive rendering can receive dependencies through `options.paper` and `options.paperjsOffset`; if dependencies are missing, the dev-site can still use `assets/*.png` as static fallback.
 
@@ -690,8 +694,6 @@ Bug reports are most useful when they include:
 - whether the operation is `offset` or `offsetStroke`
 - expected shape or screenshot
 - `analyze(...)` output when available
-
-Report issues at <https://github.com/glenzli/paperjs-offset/issues>.
 
 ### Development
 

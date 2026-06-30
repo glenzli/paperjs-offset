@@ -61,10 +61,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/glenzli/paperjs-offset.git"
+    "url": "git+https://gitlab.com/glenzli/paperjs-offset.git"
   },
   "bugs": {
-    "url": "https://github.com/glenzli/paperjs-offset/issues"
+    "url": "https://gitlab.com/glenzli/paperjs-offset/-/issues"
   },
   "keywords": [
     "paperjs",
