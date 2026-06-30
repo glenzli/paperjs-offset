@@ -18,6 +18,8 @@ Language: [English](#english) | [中文](#中文)
 
 `paperjs-offset` 是 [Paper.js](https://paperjs.org/) 的路径偏移辅助库，用于生成闭合路径偏移、描边轮廓，以及分析偏移结果质量。
 
+项目主页：<https://glenzli.com/projects/paperjs-offset/>
+
 新代码推荐直接使用命名函数：
 
 ```ts
@@ -383,6 +385,8 @@ MIT。详见 [LICENSE](LICENSE)。
 ### Overview
 
 `paperjs-offset` provides offset geometry helpers for [Paper.js](https://paperjs.org/). It generates closed path offsets, filled stroke outlines, and quality reports for generated offset geometry.
+
+Project homepage: <https://glenzli.com/projects/paperjs-offset/>
 
 Use the named functions for new code:
 

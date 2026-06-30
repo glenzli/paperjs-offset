@@ -501,6 +501,7 @@ async function build() {
     tags: ['geometry', 'paperjs', 'typescript'],
     stack: ['Paper.js', 'TypeScript', 'Geometry'],
     links: {
+      homepage: 'https://glenzli.com/projects/paperjs-offset/',
       github: 'https://github.com/glenzli/paperjs-offset',
       gitlab: 'https://gitlab.com/glenzli/paperjs-offset',
       npm: 'https://www.npmjs.com/package/paperjs-offset'
