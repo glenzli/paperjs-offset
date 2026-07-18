@@ -67,8 +67,6 @@
       (function() {
         var WIDTH = 1600;
         var HEIGHT = 1000;
-        var TAU = Math.PI * 2;
-
         var paperSources = [
           './node_modules/paper/dist/paper-full.min.js'
         ];
@@ -77,26 +75,15 @@
         ];
 
         var palette = {
-          ink: '#101820',
-          mutedInk: '#334155',
-          coral: '#f43f5e',
-          amber: '#f59e0b',
-          cyan: '#0891b2',
+          paper: '#ffffff',
+          ink: '#111318',
+          cobalt: '#2457d6',
+          cyan: '#0b8fab',
           teal: '#0f766e',
-          blue: '#2563eb',
-          violet: '#7c3aed',
-          lime: '#65a30d'
+          coral: '#ef5664',
+          blueWash: '#f3f7ff',
+          coralWash: '#fff5f5'
         };
-
-        var contourColors = [
-          palette.violet,
-          palette.blue,
-          palette.cyan,
-          palette.teal,
-          palette.lime,
-          palette.amber,
-          palette.coral
-        ];
 
         function loadScript(src) {
           return new Promise(function(resolve, reject) {
@@ -153,284 +140,270 @@
           });
         }
 
-        function makePolarFlower(center, radius, amplitude, lobes, ripple, rippleLobes, steps, rotation) {
-          var segments = [];
-          for (var i = 0; i < steps; i += 1) {
-            var angle = rotation + TAU * i / steps;
-            var localRadius = radius +
-              Math.sin(angle * lobes) * amplitude +
-              Math.sin(angle * rippleLobes + 0.7) * ripple;
-            segments.push([
-              center[0] + Math.cos(angle) * localRadius,
-              center[1] + Math.sin(angle) * localRadius
-            ]);
-          }
-          var path = new paper.Path({ segments: segments, closed: true, insert: false });
-          path.smooth({ type: 'continuous' });
-          path.reduce({});
-          return path;
-        }
-
-        function makeRibbon(segments) {
-          var path = new paper.Path({ segments: segments, closed: false, insert: false });
-          path.smooth({ type: 'continuous' });
-          return path;
-        }
-
-        function makeWavePath(y, amplitude, phase, slope) {
-          var segments = [];
-          for (var i = 0; i < 15; i += 1) {
-            var x = -90 + i * ((WIDTH + 180) / 14);
-            var wave = Math.sin(i * 0.88 + phase) * amplitude +
-              Math.sin(i * 1.74 + phase * 0.7) * amplitude * 0.28;
-            segments.push([x, y + wave + (i - 7) * slope]);
-          }
-          return makeRibbon(segments);
-        }
-
-        function makeOrbitPath(center, radiusX, radiusY, phase, steps) {
-          var segments = [];
-          for (var i = 0; i < steps; i += 1) {
-            var t = TAU * i / (steps - 1);
-            var wobble = 1 + Math.sin(t * 5 + phase) * 0.08;
-            segments.push([
-              center[0] + Math.cos(t + phase) * radiusX * wobble,
-              center[1] + Math.sin(t * 2 - phase) * radiusY * wobble
-            ]);
-          }
-          var path = new paper.Path({ segments: segments, closed: false, insert: false });
-          path.smooth({ type: 'continuous' });
-          return path;
-        }
-
         function drawBackground() {
           new paper.Path.Rectangle({
             point: [0, 0],
             size: [WIDTH, HEIGHT],
-            fillColor: '#ffffff',
+            fillColor: palette.paper,
             strokeColor: null
           });
-
-          for (var x = 80; x < WIDTH; x += 80) {
-            new paper.Path.Line({
-              from: [x, 0],
-              to: [x, HEIGHT],
-              strokeColor: 'rgba(16, 24, 32, 0.028)',
-              strokeWidth: 1
-            });
-          }
-
-          for (var y = 80; y < HEIGHT; y += 80) {
-            new paper.Path.Line({
-              from: [0, y],
-              to: [WIDTH, y],
-              strokeColor: 'rgba(16, 24, 32, 0.028)',
-              strokeWidth: 1
-            });
-          }
         }
 
-        function fitGroup(group, center, maxSize) {
-          var bounds = group.bounds;
-          var scale = Math.min(maxSize[0] / bounds.width, maxSize[1] / bounds.height);
-          group.scale(scale);
-          group.position = new paper.Point(center[0], center[1]);
+        function makePath(points, closed, sharpIndices) {
+          var path = new paper.Path({
+            segments: points,
+            closed: closed,
+            insert: false
+          });
+          path.smooth({ type: 'continuous' });
+          (sharpIndices || []).forEach(function(index) {
+            path.segments[index].handleIn = new paper.Point(0, 0);
+            path.segments[index].handleOut = new paper.Point(0, 0);
+          });
+          return path;
         }
 
-        function drawOffsetLayer(source, distance, index, alpha) {
-          var layer = paperjsOffset.offset(source, distance, {
+        function transformPoint(point, config) {
+          var x = point[0];
+          var edge = Math.min(1, Math.abs(x) / 220);
+          var y = point[1] + config.bend * (1 - edge * edge);
+          var scaledX = x * config.scale;
+          var scaledY = y * config.scale;
+          var angle = config.rotation * Math.PI / 180;
+          return [
+            config.center[0] + scaledX * Math.cos(angle) - scaledY * Math.sin(angle),
+            config.center[1] + scaledX * Math.sin(angle) + scaledY * Math.cos(angle)
+          ];
+        }
+
+        function transformPoints(points, config) {
+          return points.map(function(point) {
+            return transformPoint(point, config);
+          });
+        }
+
+        function offsetPath(source, distance, style) {
+          var result = paperjsOffset.offset(source, distance, {
             join: 'round',
             limit: 4,
             algorithm: 'robust',
             insert: false
           });
-          var color = contourColors[index % contourColors.length];
-          setStyle(layer, {
-            fillColor: hexToRgba(color, alpha),
-            strokeColor: color,
-            strokeWidth: distance < 0 ? 2 : 2.6
-          });
-          return layer;
+          setStyle(result, style);
+          paper.project.activeLayer.addChild(result);
+          return result;
         }
 
-        function drawOffsetStack(source, distances, center, maxSize, alphaBase, sourceStyle) {
-          var layers = [];
-
-          distances.forEach(function(distance, index) {
-            var alpha = distance < 0 ? alphaBase + 0.035 : alphaBase + index * 0.008;
-            layers.push(drawOffsetLayer(source, distance, index, alpha));
+        function offsetStroke(source, width, style) {
+          var result = paperjsOffset.offsetStroke(source, width, {
+            join: 'round',
+            cap: 'round',
+            limit: 4,
+            algorithm: 'robust',
+            insert: false
           });
-
-          setStyle(source, sourceStyle || {
-            fillColor: 'rgba(255, 255, 255, 0.76)',
-            strokeColor: palette.ink,
-            strokeWidth: 3.2
-          });
-          layers.push(source);
-
-          var group = new paper.Group(layers);
-          paper.project.activeLayer.addChild(group);
-          fitGroup(group, center, maxSize);
-          source.bringToFront();
-          return group;
+          setStyle(result, style);
+          paper.project.activeLayer.addChild(result);
+          return result;
         }
 
-        function drawCentralPattern() {
-          var outer = makePolarFlower([0, 0], 178, 44, 8, 20, 17, 96, -0.08);
-          drawOffsetStack(
-            outer,
-            [92, 68, 46, 28, 14, -10, -22],
-            [800, 505],
-            [780, 640],
-            0.038,
-            {
-              fillColor: 'rgba(255, 255, 255, 0.82)',
-              strokeColor: palette.ink,
-              strokeWidth: 4
-            }
+        function makeKoi(config) {
+          var bodyPoints = [
+            [180, 0], [167, -28], [140, -46], [100, -58],
+            [46, -57], [-18, -49], [-86, -34], [-136, -18],
+            [-176, -54], [-220, -72], [-202, -18], [-174, 0],
+            [-202, 18], [-220, 72], [-176, 54], [-136, 18],
+            [-86, 34], [-18, 49], [46, 57], [100, 58],
+            [140, 46], [167, 28]
+          ];
+          var body = makePath(
+            transformPoints(bodyPoints, config),
+            true,
+            []
           );
+          var eyeCenter = transformPoint([126, -9], config);
+          var eye = new paper.Path.Circle({
+            center: eyeCenter,
+            radius: 10 * config.scale,
+            insert: false
+          });
 
-          var core = makePolarFlower([0, 0], 58, 17, 8, 7, 19, 64, 0.17);
-          drawOffsetStack(
-            core,
-            [28, 16, 8, -6],
-            [800, 505],
-            [210, 210],
-            0.055,
-            {
-              fillColor: 'rgba(255, 255, 255, 0.92)',
-              strokeColor: palette.mutedInk,
-              strokeWidth: 2.6
-            }
-          );
+          body.clockwise = true;
+          eye.clockwise = false;
+
+          var source = new paper.CompoundPath({ insert: false });
+          source.addChildren([body, eye]);
+          source.fillRule = 'evenodd';
+
+          var fin = makePath(transformPoints([
+            [52, -9], [8, -3], [-42, 36], [24, 31]
+          ], config), true, [2]);
+          var gill = makePath(transformPoints([
+            [123, -35], [106, -15], [104, 10], [116, 29]
+          ], config), false);
+
+          return {
+            source: source,
+            body: body,
+            eyeCenter: eyeCenter,
+            eyeRadius: 10 * config.scale,
+            fin: fin,
+            gill: gill
+          };
         }
 
-        function drawStrokeRibbon(path, widths, colors, alpha) {
-          var items = [];
-          widths.slice().sort(function(a, b) {
-            return b - a;
-          }).forEach(function(width, index) {
-            var outline = paperjsOffset.offsetStroke(path, width, {
-              join: 'round',
-              cap: 'round',
-              limit: 4,
-              algorithm: 'robust',
-              insert: false
+        function drawWake(config) {
+          var wake = makePath(transformPoints([
+            [-176, 0], [-292, -9], [-408, 16], [-548, -20]
+          ], config), false);
+          [38, 18].forEach(function(width, index) {
+            var color = index === 0 ? config.secondary : config.accent;
+            offsetStroke(wake, width, {
+              fillColor: hexToRgba(color, 0.018 + index * 0.012),
+              strokeColor: hexToRgba(color, 0.7 + index * 0.16),
+              strokeWidth: index === 0 ? 2.2 : 1.7
             });
-            setStyle(outline, {
-              fillColor: hexToRgba(colors[index % colors.length], alpha - index * 0.018),
-              strokeColor: colors[index % colors.length],
-              strokeWidth: 1.8
-            });
-            items.push(outline);
           });
-
-          path.strokeColor = 'rgba(16, 24, 32, 0.45)';
-          path.strokeWidth = 2.4;
-          path.fillColor = null;
-          items.push(path);
-          return new paper.Group(items);
-        }
-
-        function drawRibbons() {
-          drawStrokeRibbon(
-            makeWavePath(162, 52, 0.2, 2.5),
-            [26, 16, 8],
-            [palette.cyan, palette.amber, palette.coral],
-            0.13
-          );
-
-          drawStrokeRibbon(
-            makeWavePath(840, 58, 1.1, -2),
-            [28, 18, 9],
-            [palette.violet, palette.teal, palette.blue],
-            0.12
-          );
-
-          drawStrokeRibbon(
-            makeWavePath(505, 42, 2.5, 1),
-            [18, 10, 5],
-            [palette.lime, palette.coral, palette.cyan],
-            0.09
-          );
-        }
-
-        function drawRosette(center, maxSize, rotation, colorA, colorB) {
-          var source = makePolarFlower([0, 0], 70, 22, 7, 8, 15, 56, rotation);
-          var group = drawOffsetStack(
-            source,
-            [34, 23, 13, -8],
-            center,
-            maxSize,
-            0.052,
-            {
-              fillColor: 'rgba(255, 255, 255, 0.78)',
-              strokeColor: palette.mutedInk,
-              strokeWidth: 2.4
-            }
-          );
-          group.children.forEach(function(child, index) {
-            if (index % 2 === 0) {
-              child.strokeColor = colorA;
-            } else if (index < group.children.length - 1) {
-              child.strokeColor = colorB;
-            }
+          setStyle(wake, {
+            fillColor: null,
+            strokeColor: 'rgba(17, 19, 24, 0.18)',
+            strokeWidth: 1.4
           });
+          paper.project.activeLayer.addChild(wake);
         }
 
-        function drawRosettes() {
-          drawRosette([240, 285], [230, 230], -0.16, palette.blue, palette.amber);
-          drawRosette([1348, 310], [210, 210], 0.11, palette.coral, palette.teal);
-          drawRosette([310, 770], [180, 180], 0.24, palette.violet, palette.lime);
-          drawRosette([1292, 745], [190, 190], -0.05, palette.cyan, palette.coral);
-        }
-
-        function drawOrbitLines() {
-          drawStrokeRibbon(
-            makeOrbitPath([800, 505], 430, 210, 0.2, 110),
-            [9, 5],
-            [palette.violet, palette.blue],
-            0.07
-          );
-          drawStrokeRibbon(
-            makeOrbitPath([800, 505], 510, 155, 1.4, 110),
-            [8, 4],
-            [palette.teal, palette.amber],
-            0.06
-          );
-        }
-
-        function drawPinMarks() {
-          var points = [
-            [528, 212, palette.coral],
-            [1078, 246, palette.blue],
-            [492, 804, palette.teal],
-            [1120, 790, palette.amber],
-            [785, 154, palette.violet],
-            [806, 858, palette.lime],
-            [186, 536, palette.cyan],
-            [1412, 556, palette.coral]
+        function drawKoiPatches(config) {
+          var patchSets = [
+            [[38, -34], [78, -40], [106, -16], [91, 13], [57, 21], [32, -3]],
+            [[-52, -4], [-20, -29], [17, -15], [21, 18], [-13, 36], [-49, 24]],
+            [[-124, -20], [-88, -31], [-56, -5], [-69, 25], [-108, 27], [-130, 3]]
           ];
 
-          points.forEach(function(item) {
-            var ring = new paper.Path.Circle({
-              center: [item[0], item[1]],
-              radius: 9,
-              fillColor: '#ffffff',
-              strokeColor: item[2],
-              strokeWidth: 2
+          patchSets.forEach(function(points, index) {
+            var patch = makePath(transformPoints(points, config), true);
+            offsetPath(patch, 6 + index, {
+              fillColor: null,
+              strokeColor: hexToRgba(config.patchColor, 0.64),
+              strokeWidth: 1.6
             });
-            var outer = paperjsOffset.offset(ring, 8, {
-              join: 'round',
-              algorithm: 'robust',
-              insert: false
+            setStyle(patch, {
+              fillColor: hexToRgba(config.patchColor, index === 1 ? 0.17 : 0.14),
+              strokeColor: null
             });
-            outer.fillColor = hexToRgba(item[2], 0.08);
-            outer.strokeColor = item[2];
-            outer.strokeWidth = 1.5;
-            paper.project.activeLayer.addChild(outer);
-            ring.bringToFront();
+            paper.project.activeLayer.addChild(patch);
           });
+        }
+
+        function drawKoi(config) {
+          var koi = makeKoi(config);
+          var outerDistances = [48, 30, 15];
+
+          outerDistances.forEach(function(distance, index) {
+            var color = index === 1 ? config.secondary : config.accent;
+            offsetPath(koi.source, distance, {
+              fillColor: hexToRgba(color, 0.018 + index * 0.011),
+              strokeColor: color,
+              strokeWidth: index === 0 ? 2.8 : 2.2
+            });
+          });
+
+          setStyle(koi.source, {
+            fillColor: config.fillColor,
+            strokeColor: palette.ink,
+            strokeWidth: 3.8
+          });
+          paper.project.activeLayer.addChild(koi.source);
+
+          [-12].forEach(function(distance) {
+            offsetPath(koi.body, distance, {
+              fillColor: null,
+              strokeColor: config.accent,
+              strokeWidth: 2.2
+            });
+          });
+
+          drawKoiPatches(config);
+
+          offsetPath(koi.fin, 7, {
+            fillColor: hexToRgba(config.secondary, 0.035),
+            strokeColor: config.secondary,
+            strokeWidth: 1.8
+          });
+          setStyle(koi.fin, {
+            fillColor: hexToRgba(config.secondary, 0.055),
+            strokeColor: config.secondary,
+            strokeWidth: 2
+          });
+          paper.project.activeLayer.addChild(koi.fin);
+
+          offsetStroke(koi.gill, 7, {
+            fillColor: hexToRgba(config.accent, 0.05),
+            strokeColor: config.accent,
+            strokeWidth: 1.6
+          });
+          setStyle(koi.gill, {
+            fillColor: null,
+            strokeColor: palette.ink,
+            strokeWidth: 1.6
+          });
+          paper.project.activeLayer.addChild(koi.gill);
+
+          new paper.Path.Circle({
+            center: koi.eyeCenter,
+            radius: koi.eyeRadius * 0.36,
+            fillColor: palette.ink,
+            strokeColor: palette.paper,
+            strokeWidth: 1.8
+          });
+        }
+
+        function drawCenterRipple() {
+          var center = new paper.Point(800, 500);
+          var source = new paper.Path.Circle({
+            center: center,
+            radius: 94,
+            insert: false
+          });
+
+          offsetPath(source, 42, {
+            fillColor: null,
+            strokeColor: hexToRgba(palette.coral, 0.32),
+            strokeWidth: 1.6
+          });
+          setStyle(source, {
+            fillColor: hexToRgba(palette.coral, 0.06),
+            strokeColor: null
+          });
+          paper.project.activeLayer.addChild(source);
+        }
+
+        function drawArtwork() {
+          var blueKoi = {
+            center: [590, 350],
+            scale: 1.34,
+            rotation: 28,
+            bend: -34,
+            accent: palette.cobalt,
+            secondary: palette.cyan,
+            patchColor: palette.coral,
+            fillColor: palette.blueWash
+          };
+          var coralKoi = {
+            center: [1010, 650],
+            scale: 1.3,
+            rotation: 208,
+            bend: -34,
+            accent: palette.coral,
+            secondary: palette.teal,
+            patchColor: palette.cobalt,
+            fillColor: palette.coralWash
+          };
+
+          drawCenterRipple();
+          drawWake(blueKoi);
+          drawWake(coralKoi);
+          drawKoi(blueKoi);
+          drawKoi(coralKoi);
         }
 
         function drawBanner() {
@@ -440,13 +413,10 @@
           paper.project.activeLayer.removeChildren();
 
           drawBackground();
-          drawRibbons();
-          drawOrbitLines();
-          drawRosettes();
-          drawCentralPattern();
-          drawPinMarks();
+          drawArtwork();
 
           paper.view.update();
+          canvas.setAttribute('data-render-state', 'ready');
           window.paperjsOffsetBannerReady = true;
         }
 

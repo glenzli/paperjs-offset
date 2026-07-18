@@ -346,18 +346,7 @@ function png(width, height, draw) {
 
 async function writeAssets() {
   const assets = path.join(output, 'assets');
-  await fs.writeFile(path.join(assets, 'banner.png'), png(1600, 900, (r) => {
-    r.grid(40, color('#dbe5ec', 110));
-    r.rect(92, 112, 470, 56, color('#172a3a', 28));
-    r.rect(92, 198, 620, 24, color('#0f766e', 42));
-    r.rect(92, 246, 520, 24, color('#2563eb', 36));
-    r.polygon(star(1030, 454, 260, 112, 9), color('#e11d48', 40), color('#be123c'), 7);
-    r.polygon(star(1030, 454, 202, 86, 9), color('#14b8a6', 45), color('#172a3a'), 6);
-    r.polygon(star(1030, 454, 154, 66, 9), color('#f59e0b', 54), color('#b45309'), 5);
-    r.rect(108, 656, 1384, 108, color('#ffffff', 220));
-    r.strokeRect(108, 656, 1384, 108, color('#d8e1e8'), 3);
-    [160, 360, 560, 760, 960, 1160, 1360].forEach((x) => r.rect(x, 696, 128, 20, color('#172a3a', 90)));
-  }));
+  await fs.copyFile(path.join(root, 'public', 'preview.jpg'), path.join(assets, 'banner.jpg'));
   await fs.writeFile(path.join(assets, 'guide.png'), png(1280, 800, (r) => {
     r.grid(36, color('#dbe5ec', 105));
     for (let row = 0; row < 3; row += 1) {
@@ -508,7 +497,7 @@ async function build() {
     },
     app,
     assets: {
-      cover: 'assets/banner.png',
+      cover: 'assets/banner.jpg',
       screenshots: [
         { id: 'guide', src: 'assets/guide.png', ratio: '16:10' },
         { id: 'gallery', src: 'assets/gallery.png', ratio: '16:10' },

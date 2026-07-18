@@ -27,6 +27,11 @@ function assertPng(file) {
   assert.deepStrictEqual(Array.from(buffer.slice(0, 8)), [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], `${file} should be a PNG`);
 }
 
+function assertJpeg(file) {
+  const buffer = fs.readFileSync(path.join(output, file));
+  assert.deepStrictEqual(Array.from(buffer.slice(0, 3)), [0xff, 0xd8, 0xff], `${file} should be a JPEG`);
+}
+
 (async function run() {
   const manifest = readJson('manifest.json');
   const guide = readJson('data/guide.json');
@@ -45,7 +50,7 @@ function assertPng(file) {
     assertRelativePath(asset.src, `screenshot ${asset.id}`);
     assertPng(asset.src);
   });
-  assertPng(manifest.assets.cover);
+  assertJpeg(manifest.assets.cover);
 
   manifest.app.scripts.forEach((item) => assertHashedJsPath(item, `app script ${item}`));
   manifest.app.modules.forEach((item) => assertHashedJsPath(item, `app module ${item}`));

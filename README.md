@@ -254,7 +254,7 @@ dist/dev-site/
 │   ├── paperjs-offset.umd.min-<hash>.js
 │   └── paperjs-offset.esm-<hash>.js
 ├── assets/
-│   ├── banner.png
+│   ├── banner.jpg
 │   ├── guide.png
 │   ├── gallery.png
 │   └── playground.png
@@ -622,7 +622,7 @@ dist/dev-site/
 │   ├── paperjs-offset.umd.min-<hash>.js
 │   └── paperjs-offset.esm-<hash>.js
 ├── assets/
-│   ├── banner.png
+│   ├── banner.jpg
 │   ├── guide.png
 │   ├── gallery.png
 │   └── playground.png
