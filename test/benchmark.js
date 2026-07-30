@@ -26,6 +26,8 @@ function runCase(testCase, algorithm) {
   const duration = performance.now() - start;
   const quality = analyze(source, result, testCase.distance, {
     stroke: testCase.operation === 'stroke',
+    join: testCase.options.join,
+    cap: testCase.options.cap,
   });
   return {
     id: testCase.id,

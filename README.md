@@ -42,7 +42,11 @@ function analyze(
   source: paper.Path | paper.CompoundPath,
   result: paper.Path | paper.CompoundPath,
   distance: number,
-  options?: { stroke?: boolean }
+  options?: {
+    stroke?: boolean;
+    join?: 'miter' | 'bevel' | 'round';
+    cap?: 'butt' | 'round';
+  }
 ): OffsetQuality;
 ```
 
@@ -136,7 +140,7 @@ const result = offset(source, -12, {
   insert: false
 });
 
-const quality = analyze(source, result, -12);
+const quality = analyze(source, result, -12, { join: 'round' });
 
 console.log(quality.score, quality.warnings);
 ```
@@ -150,7 +154,11 @@ const outline = offsetStroke(openPath, 10, {
   insert: false
 });
 
-const quality = analyze(openPath, outline, 10, { stroke: true });
+const quality = analyze(openPath, outline, 10, {
+  stroke: true,
+  join: 'round',
+  cap: 'round'
+});
 ```
 
 ### 选项
@@ -175,7 +183,7 @@ interface OffsetOptions {
 
 ### 算法模式
 
-`algorithm: 'auto'` 是推荐默认值。它会尝试可用策略，使用与 `analyze` 相同的质量函数对候选结果评分，并返回评分最低的结果。
+`algorithm: 'auto'` 是推荐默认值。它先生成 `adaptive` 结果；质量检查无警告时直接返回，只有困难几何出现警告时才继续尝试其他策略，并返回评分最低的结果。
 
 `adaptive` 会严格保留请求的偏移距离，并在默认连接方式可能产生 miter 尖刺时尝试更安全的 round join。
 
@@ -202,7 +210,7 @@ interface OffsetQuality {
 }
 ```
 
-警告可能包括空结果、非有限 bounds、自交、非预期面积变化、包含关系错误、中心偏移和距离坍缩。
+警告可能包括空结果、非有限 bounds、自交、非预期面积变化、包含关系错误、中心偏移和距离坍缩。向 `analyze` 传入实际的 `join`、`cap` 和 `stroke`，可以避免把 bevel 连接或 butt 端点的预期几何误判为距离坍缩。
 
 ### 浏览器用法
 
@@ -411,7 +419,11 @@ function analyze(
   source: paper.Path | paper.CompoundPath,
   result: paper.Path | paper.CompoundPath,
   distance: number,
-  options?: { stroke?: boolean }
+  options?: {
+    stroke?: boolean;
+    join?: 'miter' | 'bevel' | 'round';
+    cap?: 'butt' | 'round';
+  }
 ): OffsetQuality;
 ```
 
@@ -505,7 +517,7 @@ const result = offset(source, -12, {
   insert: false
 });
 
-const quality = analyze(source, result, -12);
+const quality = analyze(source, result, -12, { join: 'round' });
 
 console.log(quality.score, quality.warnings);
 ```
@@ -519,7 +531,11 @@ const outline = offsetStroke(openPath, 10, {
   insert: false
 });
 
-const quality = analyze(openPath, outline, 10, { stroke: true });
+const quality = analyze(openPath, outline, 10, {
+  stroke: true,
+  join: 'round',
+  cap: 'round'
+});
 ```
 
 ### Options
@@ -544,7 +560,7 @@ interface OffsetOptions {
 
 ### Algorithms
 
-`algorithm: 'auto'` is the recommended default. It tries the available strategies, scores each candidate with the same quality function exposed by `analyze`, and returns the lowest-scoring result.
+`algorithm: 'auto'` is the recommended default. It starts with the `adaptive` result and returns it immediately when quality checks are clean. Only geometry with warnings triggers the remaining strategies and lowest-score selection.
 
 `adaptive` preserves the requested offset distance and may try a safer round join when the default join could produce a miter spike.
 
@@ -571,7 +587,7 @@ interface OffsetQuality {
 }
 ```
 
-Warnings can include empty results, non-finite bounds, self-intersections, unexpected area changes, containment errors, center shift, and distance collapse.
+Warnings can include empty results, non-finite bounds, self-intersections, unexpected area changes, containment errors, center shift, and distance collapse. Pass the actual `join`, `cap`, and `stroke` values to `analyze` so expected bevel joins and butt caps are not reported as distance collapse.
 
 ### Browser Usage
 

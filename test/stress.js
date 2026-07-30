@@ -47,6 +47,8 @@ function runCase(testCase, algorithm) {
     : offset(source, testCase.distance, options);
   const quality = analyze(source, result, testCase.distance, {
     stroke: testCase.operation === 'stroke',
+    join: testCase.options.join,
+    cap: testCase.options.cap,
   });
 
   return {
@@ -115,6 +117,19 @@ cases.forEach((testCase) => {
     });
   }
 });
+
+const deepSubdivision = summaries.find((summary) => summary.id === 'deep-subdivision-in');
+if (deepSubdivision) {
+  assert.ok(
+    deepSubdivision.results.adaptive.warnings.includes('self-intersection'),
+    'deep subdivision should exercise the auto fallback path'
+  );
+  assert.strictEqual(
+    deepSubdivision.results.auto.warnings.includes('self-intersection'),
+    false,
+    'auto should continue past an unhealthy adaptive result'
+  );
+}
 
 if (failures.length > 0) {
   console.error(JSON.stringify({

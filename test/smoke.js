@@ -334,6 +334,21 @@ paper.setup(new paper.Size(1200, 900));
 }
 
 {
+  const source = makeLegacyStressStar(5, true);
+  const result = offset(source, -12, {
+    insert: false,
+    join: 'bevel',
+    algorithm: 'robust',
+  });
+  const roundAssumption = analyze(source, result, -12, { join: 'round' });
+  const bevelQuality = analyze(source, result, -12, { join: 'bevel' });
+
+  assert.ok(roundAssumption.distanceErrors > 0, 'round diagnostics should enforce radial join distance');
+  assert.strictEqual(bevelQuality.distanceErrors, 0, 'bevel diagnostics should allow the expected join shortcut');
+  assert.strictEqual(bevelQuality.warnings.includes('offset-distance-collapse'), false);
+}
+
+{
   ['adaptive', 'auto'].forEach((algorithm) => {
     const source = makeLegacyStressStar(10, false);
     const result = offset(source, -11, {

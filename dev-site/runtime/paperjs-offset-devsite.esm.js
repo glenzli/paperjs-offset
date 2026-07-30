@@ -350,7 +350,9 @@ function renderGalleryCase(card, testCase, options) {
     source.bringToFront();
     fit(paper, [result, source], [20, 18, 280, 150]);
     const quality = api.analyze(source, result, testCase.distance, {
-      stroke: testCase.operation === 'stroke'
+      stroke: testCase.operation === 'stroke',
+      join: testCase.options.join,
+      cap: testCase.options.cap
     });
     paper.view.update();
     return {
@@ -515,7 +517,9 @@ function renderPlaygroundCanvas(canvas, preset, state, options) {
   source.bringToFront();
   fit(paper, [result, source], [34, 28, 652, 310]);
   const quality = api.analyze(source, result, state.distance, {
-    stroke: preset.operation === 'stroke'
+    stroke: preset.operation === 'stroke',
+    join: state.join,
+    cap: state.cap
   });
   paper.view.update();
   return quality.warnings.length > 0
