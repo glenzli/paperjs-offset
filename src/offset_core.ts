@@ -6,6 +6,7 @@ export type OffsetAlgorithm = 'auto' | 'adaptive' | 'legacy' | 'split' | 'robust
 export type PathType = paper.Path | paper.CompoundPath;
 const MAX_RECURSION_DEPTH = 12;
 const AREA_EPSILON_FACTOR = Number.EPSILON * 1024;
+const INTERIOR_CLEARANCE_FACTOR = 0.995;
 type HandleType = 'handleIn' | 'handleOut';
 
 interface OffsetStrategy {
@@ -852,8 +853,8 @@ function isSeverelyCollapsedInwardResult(source: PathType, result: PathType, off
   if (distances.length === 0) {
     return false;
   }
-  const medianDistance = distances[Math.floor(distances.length / 2)];
-  if (medianDistance >= Math.abs(offset) * 0.7) {
+  const collapsedCount = distances.filter((distance) => distance < Math.abs(offset) * 0.7).length;
+  if (collapsedCount * 2 < distances.length) {
     return false;
   }
 
@@ -861,7 +862,13 @@ function isSeverelyCollapsedInwardResult(source: PathType, result: PathType, off
 }
 
 function hasInteriorClearance(source: PathType, offset: number) {
-  const requiredClearance = Math.abs(offset) * 0.98;
+  return findInteriorPointWithClearance(
+    source,
+    Math.abs(offset) * INTERIOR_CLEARANCE_FACTOR
+  ) !== null;
+}
+
+function findInteriorPointWithClearance(source: PathType, requiredClearance: number) {
   const candidates = getChildPaths(source).map((child) => child.interiorPoint);
   const bounds = source.bounds;
   candidates.push(bounds.center);
@@ -885,10 +892,13 @@ function hasInteriorClearance(source: PathType, offset: number) {
       bestPoint = point;
       bestClearance = clearance;
     }
-    return clearance >= requiredClearance;
+    return clearance >= requiredClearance ? point : null;
   };
-  if (candidates.some(checkPoint)) {
-    return true;
+  for (const candidate of candidates) {
+    const point = checkPoint(candidate);
+    if (point) {
+      return point;
+    }
   }
 
   let stepX = bounds.width / divisions;
@@ -901,19 +911,121 @@ function hasInteriorClearance(source: PathType, offset: number) {
         nearby.push(center.add(new paper.Point(stepX * x, stepY * y)));
       }
     }
-    if (nearby.some(checkPoint)) {
-      return true;
+    for (const candidate of nearby) {
+      const point = checkPoint(candidate);
+      if (point) {
+        return point;
+      }
     }
     stepX /= 2;
     stepY /= 2;
   }
-  return false;
+  return null;
 }
 
 function makeEmptyOffsetResult(source: PathType) {
   const result = new paper.Path({ insert: false });
   result.copyAttributes(source, false);
   return result;
+}
+
+function makeBoundaryBuffer(source: PathType, radius: number) {
+  const parts = new Array<paper.Path>();
+  const flatness = Math.max(0.01, Math.min(radius * 0.02, 0.5));
+
+  getChildPaths(source).forEach((child) => {
+    const flattened = child.clone({ insert: false }) as paper.Path;
+    flattened.flatten(flatness);
+    flattened.segments.forEach((segment) => {
+      const next = segment.next;
+      if (!next) {
+        return;
+      }
+      const delta = next.point.subtract(segment.point);
+      if (delta.length <= 1e-8) {
+        return;
+      }
+      const direction = delta.normalize(radius);
+      const normal = direction.rotate(90, new paper.Point(0, 0));
+      const capsule = new paper.Path({
+        segments: [segment.point.add(normal)],
+        insert: false,
+      });
+      capsule.lineTo(next.point.add(normal));
+      capsule.arcTo(next.point.add(direction), next.point.subtract(normal));
+      capsule.lineTo(segment.point.subtract(normal));
+      capsule.arcTo(segment.point.subtract(direction), segment.point.add(normal));
+      capsule.closed = true;
+      parts.push(capsule);
+    });
+    flattened.remove();
+  });
+
+  if (parts.length === 0) {
+    return null;
+  }
+  // Balanced unions keep intermediate contour complexity bounded on flattened Bezier paths.
+  let level = parts as PathType[];
+  while (level.length > 1) {
+    const nextLevel = new Array<PathType>();
+    for (let i = 0; i < level.length; i += 2) {
+      if (i + 1 === level.length) {
+        nextLevel.push(level[i]);
+        continue;
+      }
+      const united = level[i].unite(level[i + 1], { insert: false }) as PathType;
+      level[i].remove();
+      level[i + 1].remove();
+      nextLevel.push(united);
+    }
+    level = nextLevel;
+  }
+  return level[0];
+}
+
+function recoverRoundInwardOffsetFromBoundary(
+  source: PathType,
+  offset: number
+) {
+  const buffer = makeBoundaryBuffer(source, Math.abs(offset));
+  if (!buffer) {
+    return makeEmptyOffsetResult(source);
+  }
+  const recovered = normalize(source.subtract(buffer, { insert: false }) as PathType);
+  buffer.remove();
+  return recovered;
+}
+
+function isMissingInwardInterior(source: PathType, result: PathType, offset: number) {
+  const requiredClearance = Math.abs(offset) * 1.02;
+  const missesInteriorPoint = getChildPaths(source).some((child) => {
+    const point = child.interiorPoint;
+    return containsPoint(source, point)
+      && distanceToPath(source, point) >= requiredClearance
+      && !containsPoint(result, point);
+  });
+  if (missesInteriorPoint) {
+    return true;
+  }
+
+  const sourceArea = Math.abs(source.area || 0);
+  const resultArea = Math.abs(result.area || 0);
+  if (sourceArea === 0 || resultArea >= sourceArea * 0.05) {
+    return false;
+  }
+  const clearancePoint = findInteriorPointWithClearance(source, requiredClearance);
+  return clearancePoint !== null && !containsPoint(result, clearancePoint);
+}
+
+function needsRoundInwardRecovery(source: PathType, result: PathType, offset: number) {
+  const quality = analyzeOffsetQuality(source, result, offset, { join: 'round' });
+  if (quality.selfIntersections > 0 || quality.containmentErrors > 0 || quality.distanceErrors > 0) {
+    return true;
+  }
+  if (quality.segmentCount === 0) {
+    return hasInteriorClearance(source, offset);
+  }
+  return isMissingInwardInterior(source, result, offset);
 }
 
 function recoverInwardOffsetFromComplement(
@@ -937,7 +1049,14 @@ function recoverInwardOffsetFromComplement(
   return recovered;
 }
 
-function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy) {
+function offsetPathAdaptive(
+  path: PathType,
+  offset: number,
+  join: StrokeJoinType,
+  limit: number,
+  strategy: OffsetStrategy,
+  tryStyleFallback = true
+) {
   const baseStrategy = withoutAdaptiveFallback(strategy);
   const candidates = new Array<OffsetCandidate>();
   addAdaptiveCandidate(
@@ -951,6 +1070,9 @@ function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType
     primary.quality = analyzeOffsetQuality(path, primary.result, offset, primary.qualityOptions);
     if ((!needsAutoFallback(primary.quality) || isExpectedEmptyInwardResult(path, offset, primary.quality))
       && !isSeverelyCollapsedInwardResult(path, primary.result, offset)) {
+      return primary;
+    }
+    if (!tryStyleFallback) {
       return primary;
     }
   }
@@ -996,6 +1118,19 @@ function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoin
   if (shouldNormalizeResult && needsAdditionalNormalization(result)) {
     result = normalize(result);
   }
+  if (strategy.guardInsideJoins
+    && join === 'round'
+    && offset < 0
+    && path.closed
+    && needsRoundInwardRecovery(nonSIPath, result, offset)) {
+    const recovered = recoverRoundInwardOffsetFromBoundary(nonSIPath, offset);
+    result.remove();
+    result = recovered;
+    if (isSeverelyCollapsedInwardResult(nonSIPath, result, offset)) {
+      result.remove();
+      result = makeEmptyOffsetResult(nonSIPath);
+    }
+  }
   const shouldRecoverInwardOffset = offset < 0
     && path.closed
     && getSegments(result).length === 0
@@ -1013,7 +1148,7 @@ export function offsetPath(path: PathType, offset: number, join: StrokeJoinType,
   if (algorithm === 'auto') {
     return pickBestResult(path, offset, (strategy) => {
       if (strategy.adaptiveFallback) {
-        return offsetPathAdaptive(path, offset, join, limit, strategy);
+        return offsetPathAdaptive(path, offset, join, limit, strategy, offset >= 0);
       }
       return {
         result: offsetPathWithStrategy(path, offset, join, limit, strategy),

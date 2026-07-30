@@ -57,6 +57,14 @@
         "en": "Tight cubic inward",
         "zh": "紧凑三次曲线向内偏移"
       }
+    },
+    {
+      "id": "star-full-erosion",
+      "caseId": "playground-star-collapse-in",
+      "title": {
+        "en": "Star full erosion boundary",
+        "zh": "星形完全侵蚀边界"
+      }
     }
   ],
   "controls": [

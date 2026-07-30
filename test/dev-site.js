@@ -43,6 +43,7 @@ function assertJpeg(file) {
   assertHashedJsPath(manifest.runtime, 'runtime');
   assert.strictEqual(guide.cards.length, 6, 'guide should export six cards');
   assert.ok(gallery.cases.length >= 100, 'gallery should export the stress corpus');
+  assert.strictEqual(gallery.defaultTab, 'showcase', 'gallery should open with the curated showcase');
   assert.ok(playground.presets.length >= 4, 'playground should export presets');
 
   assertRelativePath(manifest.assets.cover, 'cover asset');
@@ -75,6 +76,25 @@ function assertJpeg(file) {
     assert.ok(['pass', 'warn', 'fail'].includes(testCase.expected.status), `${testCase.id} expected status should be valid`);
   });
 
+  const regularNeedleCases = gallery.cases.filter((testCase) => testCase.id.startsWith('regular-needle-star-in-'));
+  assert.strictEqual(regularNeedleCases.length, 4, 'gallery should include the controlled regular needle-star series');
+  assert.strictEqual(
+    new Set(regularNeedleCases.map((testCase) => testCase.source.d)).size,
+    1,
+    'regular needle-star comparisons should use the same source geometry'
+  );
+  assert.ok(
+    gallery.cases
+      .filter((testCase) => testCase.id.startsWith('needle-star-in-'))
+      .every((testCase) => testCase.title.startsWith('Irregular needle star')),
+    'perturbed needle-star cases should be labeled as irregular'
+  );
+  assert.strictEqual(
+    gallery.cases.filter((testCase) => testCase.group === 'showcase-offset').length,
+    12,
+    'showcase should stay rich but bounded'
+  );
+
   const caseIds = new Set(gallery.cases.map((testCase) => testCase.id));
   playground.presets.forEach((preset) => {
     assert.ok(caseIds.has(preset.caseId), `${preset.id} should reference an exported gallery case`);
@@ -82,6 +102,14 @@ function assertJpeg(file) {
   });
 
   const runtimeSource = fs.readFileSync(path.join(output, manifest.runtime), 'utf8');
+  assert.ok(
+    runtimeSource.includes("document.createElement('output')"),
+    'playground runtime should render the current range value'
+  );
+  assert.ok(
+    runtimeSource.includes('renderResultInset'),
+    'gallery runtime should magnify results that are small relative to their source'
+  );
   const runtime = await import(`data:text/javascript;base64,${Buffer.from(runtimeSource).toString('base64')}`);
   assert.strictEqual(typeof runtime.mountGuide, 'function');
   assert.strictEqual(typeof runtime.mountGallery, 'function');

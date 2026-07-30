@@ -85,14 +85,18 @@ function styleElement() {
 .po-group header{display:grid;gap:4px}
 .po-group h3{margin:0;font-size:22px}
 .po-gallery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.po-gallery-card{padding:12px}
+.po-gallery-card{min-width:0;padding:12px}
+.po-gallery-card>*{min-width:0;max-width:100%}
 .po-gallery-card canvas{min-height:160px}
-.po-meta{font-size:13px;color:var(--po-muted)}
+.po-meta{display:grid;gap:2px;font-size:12px;color:var(--po-muted)}
+.po-meta code,.po-meta span{min-width:0;overflow-wrap:anywhere}
+.po-meta code{font:inherit;color:#475569}
 .po-status-ok{color:#0f766e}.po-status-warn{color:#b45309}.po-status-fail{color:#be123c}
 .po-playground{display:grid;grid-template-columns:minmax(280px,.7fr) minmax(320px,1fr);gap:18px;align-items:start}
 .po-panel{display:grid;gap:14px;border:1px solid var(--po-line);border-radius:8px;background:#fff;padding:16px}
 .po-field{display:grid;gap:6px}
-.po-field label{font-weight:750;color:#334155}
+.po-field label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:750;color:#334155}
+.po-field output{font-variant-numeric:tabular-nums;color:var(--po-accent)}
 .po-field input,.po-field select{width:100%;border:1px solid var(--po-line);border-radius:6px;background:#fff;color:#172a3a;padding:8px 10px}
 .po-fallback{display:grid;gap:12px;border:1px solid var(--po-line);border-radius:8px;background:#fff;padding:16px}
 .po-fallback img{display:block;width:100%;height:auto;border-radius:6px;border:1px solid var(--po-line)}
@@ -204,6 +208,24 @@ function fit(paper, items, rectangle) {
   paper.project.activeLayer.addChild(group);
   group.fitBounds(new paper.Rectangle(rectangle[0], rectangle[1], rectangle[2], rectangle[3]));
   return group;
+}
+
+function needsResultInset(source, result) {
+  const sourceSpan = Math.max(source.bounds.width, source.bounds.height);
+  const resultSpan = Math.max(result.bounds.width, result.bounds.height);
+  return sourceSpan > 0 && resultSpan > 0 && resultSpan / sourceSpan < 0.22;
+}
+
+function renderResultInset(paper, result) {
+  new paper.Path.Rectangle({
+    rectangle: new paper.Rectangle(218, 28, 82, 122),
+    fillColor: '#ffffff',
+    strokeColor: '#d8e1e8',
+    strokeWidth: 1
+  });
+  const clone = result.clone({ insert: false });
+  fit(paper, [clone], [230, 40, 58, 98]);
+  setStyle(clone, resultStyle);
 }
 
 function createPathFromSource(paper, source) {
@@ -347,13 +369,17 @@ function renderGalleryCase(card, testCase, options) {
       ? api.offsetStroke(source, testCase.distance, callOptions)
       : api.offset(source, testCase.distance, callOptions);
     setStyle(result, resultStyle);
-    source.bringToFront();
-    fit(paper, [result, source], [20, 18, 280, 150]);
     const quality = api.analyze(source, result, testCase.distance, {
       stroke: testCase.operation === 'stroke',
       join: testCase.options.join,
       cap: testCase.options.cap
     });
+    const showResultInset = needsResultInset(source, result);
+    source.bringToFront();
+    fit(paper, [result, source], showResultInset ? [18, 18, 188, 150] : [20, 18, 280, 150]);
+    if (showResultInset) {
+      renderResultInset(paper, result);
+    }
     paper.view.update();
     return {
       status: quality.warnings.length > 0 ? 'warn' : 'ok',
@@ -473,7 +499,18 @@ export function mountGallery(container, data, options = {}) {
         title.textContent = text(testCase.title, lang) || testCase.id;
         const meta = document.createElement('p');
         meta.className = 'po-meta';
-        meta.textContent = `${testCase.id} / ${testCase.operation} / ${testCase.distance}`;
+        const caseId = document.createElement('code');
+        caseId.textContent = testCase.id;
+        const detail = document.createElement('span');
+        const details = [testCase.operation, String(testCase.distance)];
+        if (testCase.options && testCase.options.join) {
+          details.push(`join=${testCase.options.join}`);
+        }
+        if (testCase.options && testCase.options.cap) {
+          details.push(`cap=${testCase.options.cap}`);
+        }
+        detail.textContent = details.join(' / ');
+        meta.append(caseId, detail);
         const quality = document.createElement('p');
         quality.className = 'po-quality';
         card.append(title, meta, quality);
@@ -564,11 +601,14 @@ export function mountPlayground(container, data, options = {}) {
     quality.textContent = renderPlaygroundCanvas(canvas, preset, state, options);
   }
 
-  function addField(labelValue, element) {
+  function addField(labelValue, element, valueOutput) {
     const field = document.createElement('div');
     field.className = 'po-field';
     const labelEl = document.createElement('label');
     labelEl.textContent = text(labelValue, lang);
+    if (valueOutput) {
+      labelEl.appendChild(valueOutput);
+    }
     field.append(labelEl, element);
     controls.appendChild(field);
   }
@@ -597,7 +637,12 @@ export function mountPlayground(container, data, options = {}) {
     addField({ en: 'Preset', zh: '预设' }, presetSelect);
     (data.controls || []).forEach((control) => {
       const input = control.type === 'select' ? document.createElement('select') : document.createElement('input');
+      const valueOutput = control.type === 'range' ? document.createElement('output') : null;
       input.name = control.id;
+      if (valueOutput) {
+        valueOutput.value = String(state[control.id]);
+        valueOutput.textContent = String(state[control.id]);
+      }
       if (control.type === 'select') {
         (control.options || []).forEach((value) => {
           const option = document.createElement('option');
@@ -615,13 +660,21 @@ export function mountPlayground(container, data, options = {}) {
       }
       input.addEventListener('input', () => {
         state[control.id] = readControlValue(control, input);
+        if (valueOutput) {
+          valueOutput.value = String(state[control.id]);
+          valueOutput.textContent = String(state[control.id]);
+        }
         rerender();
       });
       input.addEventListener('change', () => {
         state[control.id] = readControlValue(control, input);
+        if (valueOutput) {
+          valueOutput.value = String(state[control.id]);
+          valueOutput.textContent = String(state[control.id]);
+        }
         rerender();
       });
-      addField(control.label, input);
+      addField(control.label, input, valueOutput);
     });
   }
 

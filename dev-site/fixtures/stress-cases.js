@@ -306,12 +306,12 @@
     for (var ns = 0; ns < 10; ns += 1) {
       (function(index) {
         var points = 8 + index % 5;
-        add(cases, 'needle-star-out-' + index, 'Needle star outward ' + index, 'boundary-offset',
+        add(cases, 'needle-star-out-' + index, 'Irregular needle star outward ' + index, 'boundary-offset',
           'offset', 13 + index % 5, { join: index % 2 === 0 ? 'miter' : 'round', limit: 3 },
           function() {
             return makeNeedleStar([0, 0], points, 70 + index * 2, 9 + index % 4, rotations[index % rotations.length], index * 0.71);
           });
-        add(cases, 'needle-star-in-' + index, 'Needle star inward ' + index, 'boundary-offset',
+        add(cases, 'needle-star-in-' + index, 'Irregular needle star inward ' + index, 'boundary-offset',
           'offset', -(4 + index % 4), { join: index % 2 === 0 ? 'round' : 'bevel', limit: 3 },
           function() {
             return makeNeedleStar([0, 0], points, 70 + index * 2, 9 + index % 4, rotations[(index + 1) % rotations.length], index * 0.71);
@@ -474,6 +474,12 @@
       ['fully-eroded-polygon-in', 'Fully eroded polygon inward', 'offset', -16.15878562722355, { join: 'round', limit: 4 }, function() {
         return new paper.Path({
           pathData: 'M33.55739,-10.26909l-31.08343,25.19445l-14.08615,-10.79424l1.98763,-13.4416l26.50794,-25.33233z',
+          insert: false
+        });
+      }, { allowEmpty: true }],
+      ['playground-star-collapse-in', 'Playground star full erosion', 'offset', -22, { join: 'round', limit: 4 }, function() {
+        return new paper.Path({
+          pathData: 'M74,0l-48.01924,15l11.01924,49.08588l-37,-28.08588l-37,28.08588l19.67949,-54.08588l-56.67949,-10l51.48334,-13l-14.48334,-51.08588l37,32.08588l37,-32.08588l-23.14359,56.08588z',
           insert: false
         });
       }, { allowEmpty: true }],

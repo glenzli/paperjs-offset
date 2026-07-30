@@ -268,7 +268,7 @@ dist/dev-site/
     └── paperjs-offset-devsite.esm-<hash>.js
 ```
 
-`manifest.json` 使用 `dev-site-project@1` schema，声明项目摘要、标签、链接、截图、数据文件、带内容 hash 的 JS 资源和 runtime。`gallery.json` 将压力测试 case 导出为确定性的 SVG path fixture，并包含 operation、distance、options 和 expected quality。`playground.json` 从 gallery case 派生 preset 和 control schema。
+`manifest.json` 使用 `dev-site-project@1` schema，声明项目摘要、标签、链接、截图、数据文件、带内容 hash 的 JS 资源和 runtime。`gallery.json` 将精选展示和压力测试 case 导出为确定性的 SVG path fixture，并包含 operation、distance、options 和 expected quality。Gallery 默认先加载轻量 Showcase，其他压力分类在切换 tab 后再渲染。`playground.json` 从 gallery case 派生 preset 和 control schema。
 
 runtime 导出三个挂载函数：
 
@@ -646,7 +646,7 @@ dist/dev-site/
     └── paperjs-offset-devsite.esm-<hash>.js
 ```
 
-`manifest.json` uses the `dev-site-project@1` schema and declares project copy, tags, links, screenshots, data files, content-hashed JS assets, and runtime. `gallery.json` exports stress cases as deterministic SVG path fixtures with operation, distance, options, and expected quality metadata. `playground.json` derives presets and controls from gallery cases.
+`manifest.json` uses the `dev-site-project@1` schema and declares project copy, tags, links, screenshots, data files, content-hashed JS assets, and runtime. `gallery.json` exports curated showcases and stress cases as deterministic SVG path fixtures with operation, distance, options, and expected quality metadata. Gallery initially renders the lightweight Showcase; the stress categories render after their tab is selected. `playground.json` derives presets and controls from gallery cases.
 
 The runtime exports three mount functions:
 

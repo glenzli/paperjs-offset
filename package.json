@@ -39,7 +39,7 @@
     "test:dev-site:run": "node test/dev-site.js",
     "test:smoke": "node test/smoke.js",
     "test:stress": "npm run build && npm run test:stress:run",
-    "test:stress:quick": "npm run build && node test/stress.js --groups=closed-offset,smooth-offset,compound-offset,stroke-offset,edge-case",
+    "test:stress:quick": "npm run build && node test/stress.js --groups=showcase-offset,closed-offset,smooth-offset,compound-offset,stroke-offset,edge-case",
     "test:stress:boundary": "npm run build && node test/stress.js --groups=boundary-offset,boundary-compound,boundary-stroke",
     "test:fuzz": "npm run build && npm run test:fuzz:run",
     "test:fuzz:run": "node test/fuzz.js",

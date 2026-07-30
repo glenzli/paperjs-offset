@@ -1,7 +1,7 @@
 const { performance } = require('perf_hooks');
 const paper = require('paper');
 const { analyze, offset, offsetStroke } = require('../dist/index.cjs');
-const createStressCases = require('../dev-site/fixtures/stress-cases.js');
+const createGalleryCases = require('../dev-site/fixtures/gallery-cases.js');
 
 const algorithms = ['legacy', 'split', 'robust', 'adaptive', 'auto'];
 
@@ -36,7 +36,7 @@ function runCase(testCase, algorithm) {
   };
 }
 
-const cases = createStressCases(paper);
+const cases = createGalleryCases(paper);
 const summary = {};
 
 algorithms.forEach((algorithm) => {

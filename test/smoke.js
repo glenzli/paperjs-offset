@@ -367,6 +367,56 @@ paper.setup(new paper.Size(1200, 900));
 }
 
 {
+  const pathData = 'M74,0l-48.01924,15l11.01924,49.08588l-37,-28.08588l-37,28.08588l19.67949,-54.08588l-56.67949,-10l51.48334,-13l-14.48334,-51.08588l37,32.08588l37,-32.08588l-23.14359,56.08588z';
+  const source = new paper.Path({ pathData, insert: false });
+  const surviving = offset(source, -21, {
+    insert: false,
+    join: 'round',
+    limit: 4,
+    algorithm: 'auto',
+  });
+  const eroded = offset(source, -22, {
+    insert: false,
+    join: 'round',
+    limit: 4,
+    algorithm: 'auto',
+  });
+
+  assert.ok(Math.abs(surviving.area) > 0, 'playground star should retain its last valid inward region');
+  assert.strictEqual(
+    analyze(source, eroded, -22, { join: 'round' }).segmentCount,
+    0,
+    'playground star should not grow a collapsed contour after full erosion'
+  );
+
+  let previousArea = Number.POSITIVE_INFINITY;
+  let fullyEroded = false;
+  for (let magnitude = 15; magnitude <= 24; magnitude += 1) {
+    const result = offset(source, -magnitude, {
+      insert: false,
+      join: 'round',
+      limit: 4,
+      algorithm: 'auto',
+    });
+    const quality = analyze(source, result, -magnitude, { join: 'round' });
+    const area = Math.abs(result.area || 0);
+    assert.ok(
+      area <= previousArea + 0.5,
+      `playground star inward area should not grow at distance ${-magnitude}`
+    );
+    if (fullyEroded) {
+      assert.strictEqual(
+        quality.segmentCount,
+        0,
+        `playground star should not reappear at distance ${-magnitude}`
+      );
+    }
+    fullyEroded = fullyEroded || quality.segmentCount === 0;
+    previousArea = area;
+  }
+}
+
+{
   const source = makeRectCircleHole(386, 350, 163);
   for (let i = 1; i < 5; i += 0.5) {
     const distance = -i * 163 / 20;

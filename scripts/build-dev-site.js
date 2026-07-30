@@ -4,13 +4,22 @@ const path = require('path');
 const zlib = require('zlib');
 const paper = require('paper');
 const pkg = require('../package.json');
-const createStressCases = require('../dev-site/fixtures/stress-cases.js');
+const createGalleryCases = require('../dev-site/fixtures/gallery-cases.js');
 const { analyze, offset, offsetStroke } = require('../dist/index.cjs');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'dist', 'dev-site');
 
 const groups = [
+  {
+    id: 'showcase-offset',
+    tab: 'showcase',
+    title: { en: 'Curated offset showcase', zh: '精选偏移效果' },
+    description: {
+      en: 'Controlled symmetry, rounded gears, rosettes, compound holes, and a light stroke flourish.',
+      zh: '规则对称、圆角齿轮、花结、复合镂空和轻量开放描边案例。'
+    }
+  },
   {
     id: 'closed-offset',
     tab: 'basic',
@@ -62,6 +71,7 @@ const groups = [
 ];
 
 const tabs = [
+  { id: 'showcase', title: { en: 'Showcase', zh: '精选' }, groups: ['showcase-offset'] },
   { id: 'basic', title: { en: 'Basic', zh: '基础' }, groups: ['closed-offset', 'smooth-offset'] },
   { id: 'advanced', title: { en: 'Advanced', zh: '进阶' }, groups: ['compound-offset', 'stroke-offset'] },
   { id: 'boundary', title: { en: 'Boundary', zh: '边界' }, groups: ['boundary-offset', 'boundary-compound', 'boundary-stroke'] },
@@ -105,7 +115,7 @@ function statusFromQuality(quality) {
 
 function buildGalleryCases() {
   paper.setup(new paper.Size(1600, 1200));
-  return createStressCases(paper).map((testCase) => {
+  return createGalleryCases(paper).map((testCase) => {
     paper.project.clear();
     const source = testCase.draw();
     const options = Object.assign({}, normalizeOptions(testCase.options), { insert: false });
@@ -464,10 +474,10 @@ async function build() {
     schema: 'paperjs-offset-gallery@1',
     title: { en: 'Offset gallery', zh: '偏移 Gallery' },
     summary: {
-      en: 'Deterministic stress cases exported as SVG path fixtures with expected quality metadata.',
-      zh: '以 SVG path fixture 和预期质量元数据导出的确定性压力 case。'
+      en: 'A lightweight curated showcase followed by deterministic stress fixtures with expected quality metadata.',
+      zh: '轻量精选展示，以及带预期质量元数据的确定性压力 fixture。'
     },
-    defaultTab: 'basic',
+    defaultTab: 'showcase',
     tabs,
     groups,
     cases: buildGalleryCases()

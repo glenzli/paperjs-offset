@@ -1,7 +1,7 @@
 const assert = require('assert');
 const paper = require('paper');
 const { analyze, offset, offsetStroke } = require('../dist/index.cjs');
-const createStressCases = require('../dev-site/fixtures/stress-cases.js');
+const createGalleryCases = require('../dev-site/fixtures/gallery-cases.js');
 
 const algorithms = ['legacy', 'split', 'robust', 'adaptive', 'auto'];
 const criticalWarnings = new Set([
@@ -63,6 +63,31 @@ function runCase(testCase, algorithm) {
   };
 }
 
+function childPaths(path) {
+  return path instanceof paper.CompoundPath ? path.children : [path];
+}
+
+function distanceToPath(path, point) {
+  return childPaths(path).reduce((distance, child) => {
+    const nearest = child.getNearestPoint(point);
+    return nearest ? Math.min(distance, nearest.getDistance(point)) : distance;
+  }, Number.POSITIVE_INFINITY);
+}
+
+function rotationalSymmetryError(path, center, order) {
+  const angle = 360 / order;
+  return childPaths(path).reduce((maxError, child) => {
+    const samples = Math.max(32, Math.ceil(child.length / 2));
+    for (let index = 0; index < samples; index += 1) {
+      const point = child.getPointAt(child.length * index / samples);
+      if (point) {
+        maxError = Math.max(maxError, distanceToPath(path, point.rotate(angle, center)));
+      }
+    }
+    return maxError;
+  }, 0);
+}
+
 function hasCriticalWarning(summary, testCase) {
   return summary.warnings.some((warning) => {
     const expectedEmptyWarning = testCase.allowEmpty
@@ -73,7 +98,7 @@ function hasCriticalWarning(summary, testCase) {
 }
 
 const selectedGroups = getSelectedGroups();
-const cases = createStressCases(paper).filter((testCase) => {
+const cases = createGalleryCases(paper).filter((testCase) => {
   return !selectedGroups || selectedGroups.has(testCase.kind);
 });
 assert.ok(cases.length > 0, 'stress group selection did not match any cases');
@@ -121,8 +146,13 @@ cases.forEach((testCase) => {
 const deepSubdivision = summaries.find((summary) => summary.id === 'deep-subdivision-in');
 if (deepSubdivision) {
   assert.ok(
+    deepSubdivision.results.robust.warnings.includes('self-intersection'),
+    'deep subdivision should remain a strict robust boundary case'
+  );
+  assert.strictEqual(
     deepSubdivision.results.adaptive.warnings.includes('self-intersection'),
-    'deep subdivision should exercise the auto fallback path'
+    false,
+    'adaptive should recover the strict robust boundary case'
   );
   assert.strictEqual(
     deepSubdivision.results.auto.warnings.includes('self-intersection'),
@@ -139,6 +169,32 @@ if (needleErosion) {
     'adaptive should keep a healthy primary result instead of selecting a collapsed fallback'
   );
 }
+
+const playgroundStarErosion = summaries.find((summary) => summary.id === 'playground-star-collapse-in');
+if (playgroundStarErosion) {
+  ['robust', 'adaptive', 'auto'].forEach((algorithm) => {
+    assert.strictEqual(
+      playgroundStarErosion.results[algorithm].segmentCount,
+      0,
+      `${algorithm} should remove the fully eroded playground star`
+    );
+  });
+}
+
+cases.filter((testCase) => testCase.symmetryOrder).forEach((testCase) => {
+  paper.project.clear();
+  const source = testCase.draw();
+  const result = offset(source, testCase.distance, cloneOptions(testCase.options, 'auto'));
+  const center = source.bounds.center;
+  assert.ok(
+    rotationalSymmetryError(source, center, testCase.symmetryOrder) < 1e-6,
+    `${testCase.id}: source should have exact rotational symmetry`
+  );
+  assert.ok(
+    rotationalSymmetryError(result, center, testCase.symmetryOrder) < 0.02,
+    `${testCase.id}: offset should preserve rotational symmetry`
+  );
+});
 
 if (failures.length > 0) {
   console.error(JSON.stringify({
