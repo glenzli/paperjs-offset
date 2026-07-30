@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const tag = `v${pkg.version}`;
 const publishArgs = process.argv.slice(2);
+const githubRemote = process.env.GITHUB_REMOTE || 'github';
 
 function run(command, args) {
   console.log(`> ${command} ${args.join(' ')}`);
@@ -50,10 +51,9 @@ assertCleanWorktree();
 assertTagPointsAtHead();
 
 run('npm', ['whoami', '--registry=https://registry.npmjs.org']);
-run('gh', ['auth', 'status']);
 run('npm', ['run', 'release:check']);
-run('git', ['push', 'origin', 'HEAD']);
-run('git', ['push', 'origin', tag]);
+run('git', ['push', githubRemote, 'HEAD']);
+run('git', ['push', githubRemote, tag]);
 run('npm', ['run', 'release:publish', '--', ...publishArgs]);
 run('gh', ['release', 'create', tag, '--verify-tag', '--generate-notes', '--title', tag]);
 
