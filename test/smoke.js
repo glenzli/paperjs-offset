@@ -39,6 +39,60 @@ function makeLegacyStressStar(index, positive) {
   });
 }
 
+function makeRegularStar(points, outerRadius, innerRadius) {
+  return new paper.Path({
+    segments: Array.from({ length: points * 2 }, (_, index) => {
+      const radius = index % 2 === 0 ? outerRadius : innerRadius;
+      return point(0, 0, radius, -Math.PI / 2 + Math.PI * index / points);
+    }),
+    closed: true,
+    insert: false,
+  });
+}
+
+function makeSmoothFallbackPath() {
+  return new paper.Path({
+    segments: [
+      [[28.83699, 1.77406], [-0.72665, -8.14494], [0.72665, 8.14494]],
+      [[9.87784, 17.66603], [11.76148, -5.86271], [-11.76148, 5.86271]],
+      [[-25.64183, 24.13061], [8.15953, 9.23923], [-8.15953, -9.23923]],
+      [[-27.45471, -26.46779], [-7.06706, 13.03961], [7.06706, -13.03961]],
+      [[6.56689, -29.02241], [-12.10001, -8.24466], [12.10001, 8.24466]],
+    ],
+    closed: true,
+    insert: false,
+  });
+}
+
+function assertMonotonicInwardSeries(source, join, magnitudes, label) {
+  let previousArea = Number.POSITIVE_INFINITY;
+  let fullyEroded = false;
+  magnitudes.forEach((magnitude) => {
+    const result = offset(source, -magnitude, {
+      insert: false,
+      join,
+      limit: 4,
+      algorithm: 'auto',
+    });
+    const quality = analyze(source, result, -magnitude, { join });
+    const area = Math.abs(result.area || 0);
+    assert.ok(
+      area <= previousArea + 0.5,
+      `${label} should not grow at distance ${-magnitude}`
+    );
+    if (fullyEroded) {
+      assert.strictEqual(
+        quality.segmentCount,
+        0,
+        `${label} should not reappear at distance ${-magnitude}`
+      );
+    }
+    fullyEroded = fullyEroded || quality.segmentCount === 0;
+    previousArea = area;
+    result.remove();
+  });
+}
+
 function makeRectCircleHole(width, height, radius) {
   const rect = new paper.Path.Rectangle({
     point: [-width / 2, -height / 2],
@@ -414,6 +468,172 @@ paper.setup(new paper.Size(1200, 900));
     fullyEroded = fullyEroded || quality.segmentCount === 0;
     previousArea = area;
   }
+}
+
+{
+  const source = makeRegularStar(8, 70, 12);
+  const result = offset(source, -12, {
+    insert: false,
+    join: 'round',
+    limit: 4,
+    algorithm: 'auto',
+  });
+  assert.strictEqual(
+    analyze(source, result, -12, { join: 'round' }).segmentCount,
+    0,
+    'round erosion should be empty when only a zero-area center point remains'
+  );
+  result.remove();
+  source.remove();
+}
+
+{
+  const source = makeRegularStar(12, 70, 28);
+  assertMonotonicInwardSeries(
+    source,
+    'miter',
+    Array.from({ length: 31 }, (_, index) => index + 6),
+    'regular star miter erosion'
+  );
+  source.remove();
+}
+
+{
+  const source = makeRegularStar(5, 70, 28);
+  assertMonotonicInwardSeries(
+    source,
+    'bevel',
+    Array.from({ length: 17 }, (_, index) => index + 20),
+    'regular star bevel erosion'
+  );
+  source.remove();
+}
+
+{
+  const source = makeSmoothFallbackPath();
+  const distance = -24.03534;
+  const strict = offset(source, distance, {
+    insert: false,
+    join: 'bevel',
+    algorithm: 'robust',
+  });
+  const rounded = offset(source, distance, {
+    insert: false,
+    join: 'round',
+    algorithm: 'robust',
+  });
+  const adaptive = offset(source, distance, {
+    insert: false,
+    join: 'bevel',
+    algorithm: 'adaptive',
+  });
+  const automatic = offset(source, distance, {
+    insert: false,
+    join: 'bevel',
+    algorithm: 'auto',
+  });
+
+  assert.ok(
+    analyze(source, strict, distance, { join: 'bevel' }).warnings.includes('offset-distance-collapse'),
+    'strict bevel erosion should expose the collapsed boundary candidate'
+  );
+  assert.deepStrictEqual(
+    analyze(source, adaptive, distance, { join: 'bevel' }).warnings,
+    [],
+    'adaptive erosion should replace a distance-collapsed join'
+  );
+  assert.deepStrictEqual(
+    analyze(source, automatic, distance, { join: 'bevel' }).warnings,
+    [],
+    'auto erosion should retain the healthy adaptive fallback'
+  );
+  approx(
+    Math.abs(automatic.area),
+    Math.abs(rounded.area),
+    0.001,
+    'auto distance-collapse fallback area'
+  );
+
+  strict.remove();
+  rounded.remove();
+  adaptive.remove();
+  automatic.remove();
+  source.remove();
+}
+
+{
+  const source = new paper.Path.Circle({
+    center: [3, -5],
+    radius: 20,
+    insert: false,
+  });
+  const result = offset(source, -19.872, {
+    insert: false,
+    join: 'round',
+    algorithm: 'auto',
+  });
+  const expected = new paper.Path.Circle({
+    center: [3, -5],
+    radius: 0.128,
+    insert: false,
+  });
+  assert.strictEqual(
+    analyze(source, result, -19.872, { join: 'round' }).segmentCount,
+    4,
+    'near-collapsed circle should retain its canonical four segments'
+  );
+  approx(
+    Math.abs(result.area),
+    Math.abs(expected.area),
+    0.0001,
+    'near-collapsed circle area'
+  );
+
+  const eroded = offset(source, -20, {
+    insert: false,
+    join: 'round',
+    algorithm: 'auto',
+  });
+  assert.strictEqual(
+    analyze(source, eroded, -20, { join: 'round' }).segmentCount,
+    0,
+    'circle should be empty at its radius'
+  );
+
+  result.remove();
+  expected.remove();
+  eroded.remove();
+  source.remove();
+}
+
+{
+  const outer = new paper.Path.Circle({
+    center: [0, 0],
+    radius: 70,
+    insert: false,
+  });
+  const hole = new paper.Path.Circle({
+    center: [10, -10],
+    radius: 12.5,
+    insert: false,
+  });
+  const source = outer.subtract(hole, { insert: false });
+  const result = offset(source, 12.4, {
+    insert: false,
+    join: 'round',
+    algorithm: 'auto',
+  });
+  const quality = analyze(source, result, 12.4, { join: 'round' });
+  assert.deepStrictEqual(quality.warnings, [], 'near-collapsed circular hole should remain healthy');
+  assert.ok(
+    quality.segmentCount <= 8,
+    'near-collapsed circular hole should not create excessive segments'
+  );
+
+  outer.remove();
+  hole.remove();
+  source.remove();
+  result.remove();
 }
 
 {

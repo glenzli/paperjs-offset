@@ -352,7 +352,56 @@ function preparePath(path: paper.Path, offset: number): [paper.Path, number] {
   return [source, offset];
 }
 
+function getCircularPathRadius(path: paper.Path) {
+  if (!path.closed || !path.applyMatrix || path.segments.length !== 4) {
+    return null;
+  }
+  const bounds = path.bounds;
+  const radius = (bounds.width + bounds.height) / 4;
+  const scaleTolerance = Math.max(radius * 1e-6, 1e-7);
+  if (radius <= scaleTolerance || Math.abs(bounds.width - bounds.height) > scaleTolerance) {
+    return null;
+  }
+
+  const radialTolerance = Math.max(radius * 5e-4, 1e-6);
+  const center = bounds.center;
+  const sampleTimes = [0, 0.25, 0.5, 0.75, 1];
+  const isCircular = path.curves.every((curve) => {
+    return sampleTimes.every((time) => {
+      const point = curve.getPointAtTime(time);
+      return Math.abs(point.getDistance(center) - radius) <= radialTolerance;
+    });
+  });
+  return isCircular ? radius : null;
+}
+
+function offsetCircularPath(path: paper.Path, offset: number) {
+  const radius = getCircularPathRadius(path);
+  if (radius === null) {
+    return null;
+  }
+  const directedOffset = path.clockwise ? offset : -offset;
+  const nextRadius = radius + directedOffset;
+  const radiusTolerance = Math.max(radius * 1e-6, 1e-7);
+  if (nextRadius <= radiusTolerance) {
+    return makeEmptyOffsetResult(path);
+  }
+  const result = new paper.Path.Circle({
+    center: path.bounds.center,
+    radius: nextRadius,
+    insert: false,
+  });
+  if (result.clockwise !== path.clockwise) {
+    result.reverse();
+  }
+  return result;
+}
+
 function offsetSimpleShape(path: paper.Path, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {
+  const circularResult = offsetCircularPath(path, offset);
+  if (circularResult) {
+    return circularResult;
+  }
   let source: paper.Path;
   [source, offset] = preparePath(path, offset);
   const curves = source.curves.slice();
@@ -640,15 +689,17 @@ interface OffsetCandidate {
   quality?: OffsetQuality;
 }
 
-function needsAutoFallback(quality: OffsetQuality) {
-  return quality.warnings.some((warning) => warning !== 'offset-distance-collapse');
+function needsAutoFallback(quality: OffsetQuality, includeDistanceCollapse = false) {
+  return quality.warnings.some((warning) => {
+    return includeDistanceCollapse || warning !== 'offset-distance-collapse';
+  });
 }
 
 function isExpectedEmptyInwardResult(source: PathType, offset: number, quality: OffsetQuality) {
   return source.closed
     && offset < 0
     && quality.segmentCount === 0
-    && !hasInteriorClearance(source, offset);
+    && !hasStrictInteriorClearance(source, offset);
 }
 
 function pickBestResult(source: PathType, offset: number, makeResult: (strategy: OffsetStrategy) => OffsetCandidate): PathType {
@@ -667,7 +718,10 @@ function pickBestResult(source: PathType, offset: number, makeResult: (strategy:
         bestQuality = quality;
       }
       if (strategy.algorithm === 'adaptive'
-        && (!needsAutoFallback(quality) || isExpectedEmptyInwardResult(source, offset, quality))) {
+        && (!needsAutoFallback(
+          quality,
+          offset < 0 && !candidate.qualityOptions.stroke
+        ) || isExpectedEmptyInwardResult(source, offset, quality))) {
         return candidate.result;
       }
     } catch (error) {
@@ -868,6 +922,12 @@ function hasInteriorClearance(source: PathType, offset: number) {
   ) !== null;
 }
 
+function hasStrictInteriorClearance(source: PathType, offset: number) {
+  const distance = Math.abs(offset);
+  const tolerance = Math.max(distance * 1e-6, 1e-7);
+  return findInteriorPointWithClearance(source, distance + tolerance) !== null;
+}
+
 function findInteriorPointWithClearance(source: PathType, requiredClearance: number) {
   const candidates = getChildPaths(source).map((child) => child.interiorPoint);
   const bounds = source.bounds;
@@ -1023,7 +1083,10 @@ function needsRoundInwardRecovery(source: PathType, result: PathType, offset: nu
     return true;
   }
   if (quality.segmentCount === 0) {
-    return hasInteriorClearance(source, offset);
+    return hasStrictInteriorClearance(source, offset);
+  }
+  if (!hasStrictInteriorClearance(source, offset)) {
+    return true;
   }
   return isMissingInwardInterior(source, result, offset);
 }
@@ -1049,16 +1112,45 @@ function recoverInwardOffsetFromComplement(
   return recovered;
 }
 
+function isNearInwardCollapse(source: PathType, result: PathType, offset: number) {
+  if (!source.closed || offset >= 0 || getSegments(result).length === 0) {
+    return false;
+  }
+  const sourceArea = Math.abs(source.area || 0);
+  return sourceArea > 0 && Math.abs(result.area || 0) <= sourceArea * 0.4;
+}
+
+function shouldPreferRoundInwardCandidate(
+  source: PathType,
+  primary: PathType,
+  rounded: PathType,
+  join: StrokeJoinType
+) {
+  const sourceArea = Math.abs(source.area || 0);
+  const primaryArea = Math.abs(primary.area || 0);
+  const roundedArea = Math.abs(rounded.area || 0);
+  const areaTolerance = Math.max(sourceArea * 1e-5, 0.5);
+  if (getSegments(rounded).length === 0) {
+    return getSegments(primary).length > 0;
+  }
+  if (roundedArea <= areaTolerance) {
+    return primaryArea > areaTolerance;
+  }
+  const areaRatio = primaryArea / roundedArea;
+  const maximumStableRatio = join === 'miter' ? 1.25 : 4;
+  return areaRatio < 0.9 || areaRatio > maximumStableRatio;
+}
+
 function offsetPathAdaptive(
   path: PathType,
   offset: number,
   join: StrokeJoinType,
   limit: number,
-  strategy: OffsetStrategy,
-  tryStyleFallback = true
+  strategy: OffsetStrategy
 ) {
   const baseStrategy = withoutAdaptiveFallback(strategy);
   const candidates = new Array<OffsetCandidate>();
+  let compareInwardStyles = false;
   addAdaptiveCandidate(
     candidates,
     { join },
@@ -1068,15 +1160,16 @@ function offsetPathAdaptive(
   if (join !== 'round' && candidates.length > 0) {
     const primary = candidates[0];
     primary.quality = analyzeOffsetQuality(path, primary.result, offset, primary.qualityOptions);
-    if ((!needsAutoFallback(primary.quality) || isExpectedEmptyInwardResult(path, offset, primary.quality))
-      && !isSeverelyCollapsedInwardResult(path, primary.result, offset)) {
-      return primary;
-    }
-    if (!tryStyleFallback) {
+    compareInwardStyles = isNearInwardCollapse(path, primary.result, offset);
+    if ((!needsAutoFallback(primary.quality, offset < 0)
+      || isExpectedEmptyInwardResult(path, offset, primary.quality))
+      && !isSeverelyCollapsedInwardResult(path, primary.result, offset)
+      && !compareInwardStyles) {
       return primary;
     }
   }
 
+  const roundCandidateIndex = candidates.length;
   if (join !== 'round') {
     addAdaptiveCandidate(
       candidates,
@@ -1092,7 +1185,23 @@ function offsetPathAdaptive(
     };
   }
 
-  const candidate = pickBestCandidate(path, offset, candidates);
+  const hasRoundCandidate = candidates.length > roundCandidateIndex;
+  const preferRoundCandidate = compareInwardStyles && hasRoundCandidate
+    && shouldPreferRoundInwardCandidate(
+      path,
+      candidates[0].result,
+      candidates[roundCandidateIndex].result,
+      join
+    );
+  const primaryNeedsFallback = Boolean(candidates[0]?.quality
+    && needsAutoFallback(candidates[0].quality, offset < 0));
+  const candidate = compareInwardStyles && hasRoundCandidate
+    ? preferRoundCandidate
+      ? candidates[roundCandidateIndex]
+      : primaryNeedsFallback
+        ? pickBestCandidate(path, offset, candidates)
+        : candidates[0]
+    : pickBestCandidate(path, offset, candidates);
   if (isSeverelyCollapsedInwardResult(path, candidate.result, offset)) {
     return {
       result: makeEmptyOffsetResult(path),
@@ -1134,7 +1243,7 @@ function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoin
   const shouldRecoverInwardOffset = offset < 0
     && path.closed
     && getSegments(result).length === 0
-    && hasInteriorClearance(nonSIPath, offset);
+    && hasStrictInteriorClearance(nonSIPath, offset);
   if (shouldRecoverInwardOffset) {
     result.remove();
     result = recoverInwardOffsetFromComplement(nonSIPath, offset, join, limit, strategy);
@@ -1148,7 +1257,7 @@ export function offsetPath(path: PathType, offset: number, join: StrokeJoinType,
   if (algorithm === 'auto') {
     return pickBestResult(path, offset, (strategy) => {
       if (strategy.adaptiveFallback) {
-        return offsetPathAdaptive(path, offset, join, limit, strategy, offset >= 0);
+        return offsetPathAdaptive(path, offset, join, limit, strategy);
       }
       return {
         result: offsetPathWithStrategy(path, offset, join, limit, strategy),

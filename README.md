@@ -183,9 +183,9 @@ interface OffsetOptions {
 
 ### 算法模式
 
-`algorithm: 'auto'` 是推荐默认值。它先生成 `adaptive` 结果；质量检查没有结构性问题时直接返回，只有自交、空结果、包含关系错误等信号才会继续尝试其他策略，并返回评分最低的结果。
+`algorithm: 'auto'` 是推荐默认值。它先生成 `adaptive` 结果；质量检查没有结构性问题时直接返回，只有自交、意外空结果、包含关系错误、负向偏移距离塌缩等信号才会继续尝试其他策略，并返回评分最低的结果。
 
-`adaptive` 会严格保留请求的偏移距离，并在默认连接方式可能产生 miter 尖刺时尝试更安全的 round join。
+`adaptive` 会严格保留请求的偏移距离。激进内缩进入临界区时，它会比较请求的 bevel/miter 连接与更安全的 round 连接，避免退化轮廓面积重新增长或在完全消失后重现。
 
 | 模式 | 使用场景 |
 | --- | --- |
@@ -561,9 +561,9 @@ interface OffsetOptions {
 
 ### Algorithms
 
-`algorithm: 'auto'` is the recommended default. It starts with the `adaptive` result and returns it immediately when quality checks find no structural issue. Signals such as self-intersection, an empty result, or containment errors trigger the remaining strategies and lowest-score selection.
+`algorithm: 'auto'` is the recommended default. It starts with the `adaptive` result and returns it immediately when quality checks find no structural issue. Signals such as self-intersection, an unexpected empty result, containment errors, or inward distance collapse trigger the remaining strategies and lowest-score selection.
 
-`adaptive` preserves the requested offset distance and may try a safer round join when the default join could produce a miter spike.
+`adaptive` preserves the requested offset distance. Near aggressive inward collapse, it compares the requested bevel/miter join with a safer round candidate so a degenerate contour does not regrow or reappear after full erosion.
 
 | Mode | Use case |
 | --- | --- |
