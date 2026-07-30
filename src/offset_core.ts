@@ -459,6 +459,15 @@ function countSelfIntersections(path: PathType) {
   }
 }
 
+function needsAdditionalNormalization(path: PathType) {
+  if (!(path instanceof paper.CompoundPath)) {
+    return false;
+  }
+  const children = path.children as paper.Path[];
+  return children.some((child) => !child.closed || child.segments.length === 0)
+    || countSelfIntersections(path) > 0;
+}
+
 function samplePoints(path: PathType, maxPerChild = 16) {
   const points: paper.Point[] = [];
   getChildPaths(path).forEach((child) => {
@@ -650,7 +659,7 @@ function pickBestResult(source: PathType, offset: number, makeResult: (strategy:
 }
 
 function getNonSelfIntersectionPath(path: PathType) {
-  if (path.closed) {
+  if (path.closed && (!path.clockwise || countSelfIntersections(path) > 0)) {
     return path.unite(path, { insert: false }) as PathType;
   }
   return path;
@@ -664,7 +673,9 @@ function offsetCompoundChild(child: paper.Path, parent: PathType, offset: number
     child.reverse();
   }
   let childOffset = offsetSimpleShape(child, offset, join, limit, strategy);
-  childOffset = normalize(childOffset);
+  if (needsAdditionalNormalization(childOffset)) {
+    childOffset = normalize(childOffset);
+  }
   if (childOffset.clockwise !== child.clockwise) {
     childOffset.reverse();
   }
@@ -889,7 +900,7 @@ function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoin
   } else {
     result = offsetCompoundShape(nonSIPath, offset, join, limit, strategy);
   }
-  if (shouldNormalizeResult) {
+  if (shouldNormalizeResult && needsAdditionalNormalization(result)) {
     result = normalize(result);
   }
   result.copyAttributes(nonSIPath, false);
