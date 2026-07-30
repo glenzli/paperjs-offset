@@ -4,7 +4,7 @@ export type StrokeJoinType = 'miter' | 'bevel' | 'round';
 export type StrokeCapType = 'round' | 'butt';
 export type OffsetAlgorithm = 'auto' | 'adaptive' | 'legacy' | 'split' | 'robust';
 export type PathType = paper.Path | paper.CompoundPath;
-const MAX_RECURSION_TIME = 20;
+const MAX_RECURSION_DEPTH = 12;
 type HandleType = 'handleIn' | 'handleOut';
 
 interface OffsetStrategy {
@@ -61,11 +61,14 @@ const STRATEGIES: OffsetStrategy[] = [
   },
 ];
 
+// Adaptive already evaluates the strict robust candidate, so running robust again in auto is redundant.
+const AUTO_STRATEGIES = STRATEGIES.filter((strategy) => strategy.algorithm !== 'robust');
+
 function getStrategy(algorithm: OffsetAlgorithm): OffsetStrategy {
   if (algorithm === 'auto') {
     return STRATEGIES[0];
   }
-  return STRATEGIES.filter((strategy) => strategy.algorithm === algorithm)[0] || STRATEGIES[0];
+  return STRATEGIES.find((strategy) => strategy.algorithm === algorithm) || STRATEGIES[0];
 }
 
 /**
@@ -98,13 +101,14 @@ function adaptiveOffsetCurve(curve: paper.Curve, offset: number, strategy: Offse
     new paper.Point(0, 0), curve.segment2.handleIn!.add(curve.segment2.point))).getNormalAtTime(0.5).multiply(offset);
   const segment1 = offsetSegment(curve.segment1, curve, hNormal, offset);
   const segment2 = offsetSegment(curve.segment2, curve, hNormal, offset);
-  if (recursionTime > MAX_RECURSION_TIME) {
+  const threshold = Math.min(Math.abs(offset) / 10, 1);
+  const minCurveLength = Math.max(threshold * 0.25, 0.0001);
+  if (recursionTime >= MAX_RECURSION_DEPTH || curve.length <= minCurveLength) {
     return [segment1, segment2];
   }
   // divide && re-offset
   const offsetCurve = new paper.Curve(segment1, segment2);
   const offsetCurveIntersections = offsetCurve.getIntersections(offsetCurve);
-  const threshold = Math.min(Math.abs(offset) / 10, 1);
   const midOffset = offsetCurve.getPointAtTime(0.5).getDistance(curve.getPointAtTime(0.5));
   const needsSplit = strategy.splitSelfIntersectingCurves
     ? offsetCurveIntersections.length > 0 || Math.abs(midOffset - Math.abs(offset)) > threshold
@@ -245,6 +249,14 @@ function reduceSingleChildCompoundPath(path: PathType) {
 
 /** Normalize a path, always clockwise, non-self-intersection, ignore really small components, and no one-component compound path. */
 function normalize(path: PathType, areaThreshold = 0.01) {
+  if (path instanceof paper.CompoundPath) {
+    path.children
+      .filter((child) => !(child as paper.Path).closed)
+      .forEach((child) => child.remove());
+    if (path.children.length === 1) {
+      path = reduceSingleChildCompoundPath(path);
+    }
+  }
   if (path.closed) {
     const ignoreArea = Math.abs(path.area * areaThreshold);
     if (!path.clockwise) {
@@ -253,7 +265,9 @@ function normalize(path: PathType, areaThreshold = 0.01) {
     path = path.unite(path, { insert: false }) as PathType;
     path = (path as any).resolveCrossings() as PathType;
     if (path instanceof paper.CompoundPath) {
-      path.children.filter((c) => Math.abs((c as PathType).area) < ignoreArea).forEach((c) => c.remove());
+      path.children
+        .filter((child) => !(child as paper.Path).closed || Math.abs((child as PathType).area) < ignoreArea)
+        .forEach((child) => child.remove());
       if (path.children.length === 1) {
         return reduceSingleChildCompoundPath(path);
       }
@@ -422,9 +436,13 @@ function countSelfIntersections(path: PathType) {
     const children = getChildPaths(path);
     let count = 0;
     children.forEach((child, index) => {
-      count += child.getIntersections(child).length;
+      count += child.getIntersections(child)
+        .filter((location) => location.isCrossing() || location.hasOverlap())
+        .length;
       for (let i = index + 1; i < children.length; i += 1) {
-        count += child.getIntersections(children[i]).length;
+        count += child.getIntersections(children[i])
+          .filter((location) => location.isCrossing() || location.hasOverlap())
+          .length;
       }
     });
     return count;
@@ -480,13 +498,14 @@ export function analyzeOffsetQuality(source: PathType, result: PathType, offset:
   const segmentCount = getSegments(result).length;
   const area = Math.abs(result.area || 0);
   const absOffset = Math.abs(offset);
+  const allowsEmptyResult = source.closed && offset < 0 && !options.stroke;
   let score = segmentCount * 0.01;
   let containmentErrors = 0;
   let distanceErrors = 0;
   const bounds = result.bounds;
 
   if (segmentCount === 0) {
-    score += 100000;
+    score += allowsEmptyResult ? 500 : 100000;
     addWarning(warnings, 'empty-result');
   }
 
@@ -495,14 +514,14 @@ export function analyzeOffsetQuality(source: PathType, result: PathType, offset:
     addWarning(warnings, 'non-finite-bounds');
   }
 
-  if (result.closed !== expectedClosed) {
+  if (result.closed !== expectedClosed && !(allowsEmptyResult && segmentCount === 0)) {
     score += 50000;
     addWarning(warnings, 'unexpected-closed-state');
   }
 
   const selfIntersections = countSelfIntersections(result);
   if (selfIntersections > 0) {
-    score += selfIntersections * 1000;
+    score += selfIntersections * 10000;
     addWarning(warnings, 'self-intersection');
   }
 
@@ -515,13 +534,6 @@ export function analyzeOffsetQuality(source: PathType, result: PathType, offset:
     if (sourceArea > 0 && offset < 0 && area > sourceArea * 1.05) {
       score += ((area - sourceArea) / sourceArea) * 2000;
       addWarning(warnings, 'negative-offset-area-grew');
-    }
-    if (sourceArea > 0 && offset < 0) {
-      const areaRatio = area / sourceArea;
-      if (areaRatio < 0.25) {
-        score += (0.25 - areaRatio) * 4000;
-        addWarning(warnings, 'negative-offset-collapse');
-      }
     }
     if (sourceArea > 0 && offset > 0) {
       const sourceBounds = source.bounds;
@@ -548,7 +560,7 @@ export function analyzeOffsetQuality(source: PathType, result: PathType, offset:
   }
 
   if (absOffset > 0.001) {
-    const distanceTolerance = Math.max(absOffset * 0.18, 0.75);
+    const distanceTolerance = Math.max(absOffset * 0.7, 0.75);
     samplePoints(result).forEach((point) => {
       const distance = distanceToPath(source, point);
       if (finiteNumber(distance) && distance < distanceTolerance) {
@@ -556,7 +568,7 @@ export function analyzeOffsetQuality(source: PathType, result: PathType, offset:
       }
     });
     if (distanceErrors > 0) {
-      score += distanceErrors * 35;
+      score += distanceErrors * 200;
       addWarning(warnings, 'offset-distance-collapse');
     }
   }
@@ -577,7 +589,7 @@ function pickBestResult(source: PathType, offset: number, stroke: boolean, makeR
   let bestQuality: OffsetQuality | null = null;
   let firstError: Error | null = null;
 
-  STRATEGIES.forEach((strategy) => {
+  AUTO_STRATEGIES.forEach((strategy) => {
     try {
       const result = makeResult(strategy);
       const quality = analyzeOffsetQuality(source, result, offset, { stroke });
@@ -642,7 +654,7 @@ function offsetCompoundShape(path: paper.CompoundPath, offset: number, join: Str
       ? new paper.CompoundPath({ children: outerOffset, insert: false })
       : outerOffset as PathType;
     holes.forEach((hole) => {
-      if (!outer.contains(hole.bounds.center)) {
+      if (!outer.contains(hole.interiorPoint)) {
         return;
       }
       const holeOffset = offsetCompoundChild(hole, path, offset, join, limit, strategy);
@@ -700,6 +712,9 @@ function addAdaptiveCandidate(candidates: PathType[], makeResult: () => PathType
 
 function pickBestCandidate(source: PathType, offset: number, stroke: boolean, candidates: PathType[]) {
   let bestResult = candidates[0];
+  if (candidates.length === 1) {
+    return bestResult;
+  }
   let bestQuality = analyzeOffsetQuality(source, bestResult, offset, { stroke });
   for (let i = 1; i < candidates.length; i += 1) {
     const quality = analyzeOffsetQuality(source, candidates[i], offset, { stroke });
@@ -711,6 +726,45 @@ function pickBestCandidate(source: PathType, offset: number, stroke: boolean, ca
   return bestResult;
 }
 
+function isSeverelyCollapsedInwardResult(source: PathType, result: PathType, offset: number) {
+  if (!source.closed || offset >= 0) {
+    return false;
+  }
+  const distances = samplePoints(result)
+    .map((point) => distanceToPath(source, point))
+    .filter(finiteNumber)
+    .sort((a, b) => a - b);
+  if (distances.length === 0) {
+    return false;
+  }
+  const medianDistance = distances[Math.floor(distances.length / 2)];
+  if (medianDistance >= Math.abs(offset) * 0.7) {
+    return false;
+  }
+
+  const requiredClearance = Math.abs(offset) * 0.98;
+  const candidates = getChildPaths(source).map((child) => child.interiorPoint);
+  const bounds = source.bounds;
+  const divisions = 10;
+  for (let y = 0; y < divisions; y += 1) {
+    for (let x = 0; x < divisions; x += 1) {
+      candidates.push(new paper.Point(
+        bounds.left + bounds.width * (x + 0.5) / divisions,
+        bounds.top + bounds.height * (y + 0.5) / divisions
+      ));
+    }
+  }
+  return !candidates.some((point) => {
+    return containsPoint(source, point) && distanceToPath(source, point) >= requiredClearance;
+  });
+}
+
+function makeEmptyOffsetResult(source: PathType) {
+  const result = new paper.Path({ insert: false });
+  result.copyAttributes(source, false);
+  return result;
+}
+
 function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy) {
   const baseStrategy = withoutAdaptiveFallback(strategy);
   const candidates = new Array<PathType>();
@@ -720,21 +774,14 @@ function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType
     addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, offset, 'round', limit, baseStrategy));
   }
 
-  if (path.closed && offset < 0) {
-    [0.8, 0.65, 0.5, 0.35, 0.25].forEach((factor) => {
-      const fallbackOffset = offset * factor;
-      addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, fallbackOffset, join, limit, baseStrategy));
-      if (join !== 'round') {
-        addAdaptiveCandidate(candidates, () => offsetPathWithStrategy(path, fallbackOffset, 'round', limit, baseStrategy));
-      }
-    });
-  }
-
   if (candidates.length === 0) {
     return offsetPathWithStrategy(path, offset, join, limit, baseStrategy);
   }
 
-  return pickBestCandidate(path, offset, false, candidates);
+  const result = pickBestCandidate(path, offset, false, candidates);
+  return isSeverelyCollapsedInwardResult(path, result, offset)
+    ? makeEmptyOffsetResult(path)
+    : result;
 }
 
 function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {

@@ -13,7 +13,6 @@ const criticalWarnings = new Set([
   'negative-offset-outside-source',
   'positive-offset-area-shrank',
   'negative-offset-area-grew',
-  'negative-offset-collapse',
   'offset-center-shift',
 ]);
 
@@ -62,8 +61,13 @@ function runCase(testCase, algorithm) {
   };
 }
 
-function hasCriticalWarning(summary) {
-  return summary.warnings.some((warning) => criticalWarnings.has(warning));
+function hasCriticalWarning(summary, testCase) {
+  return summary.warnings.some((warning) => {
+    const expectedEmptyWarning = testCase.allowEmpty
+      && summary.segmentCount === 0
+      && (warning === 'empty-result' || warning === 'unexpected-closed-state');
+    return criticalWarnings.has(warning) && !expectedEmptyWarning;
+  });
 }
 
 const selectedGroups = getSelectedGroups();
@@ -99,7 +103,7 @@ cases.forEach((testCase) => {
   });
 
   assert.ok(results.auto, `${testCase.id}: missing auto result`);
-  if (results.auto.error || hasCriticalWarning(results.auto)) {
+  if (results.auto.error || hasCriticalWarning(results.auto, testCase)) {
     failures.push({
       id: testCase.id,
       title: testCase.title,

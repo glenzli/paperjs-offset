@@ -90,7 +90,78 @@ function makeJaggedSilhouette() {
   });
 }
 
+function makeConcaveNestedCompound() {
+  const outer = new paper.Path({
+    segments: [
+      [0, 0], [100, 0], [100, 20], [20, 20],
+      [20, 80], [100, 80], [100, 100], [0, 100],
+    ],
+    closed: true,
+    insert: false,
+  });
+  const hole = new paper.Path({
+    segments: [
+      [5, 5], [95, 5], [95, 15], [15, 15],
+      [15, 85], [95, 85], [95, 95], [5, 95],
+    ],
+    closed: true,
+    insert: false,
+  });
+  if (!outer.clockwise) {
+    outer.reverse();
+  }
+  if (hole.clockwise) {
+    hole.reverse();
+  }
+  return new paper.CompoundPath({
+    children: [outer, hole],
+    insert: false,
+  });
+}
+
+function medianBoundaryDistance(source, result, sampleCount = 64) {
+  const distances = [];
+  for (let i = 0; i < sampleCount; i += 1) {
+    const point = result.getPointAt(result.length * i / sampleCount);
+    const nearest = source.getNearestPoint(point);
+    distances.push(point.getDistance(nearest));
+  }
+  distances.sort((a, b) => a - b);
+  return distances[Math.floor(distances.length / 2)];
+}
+
 paper.setup(new paper.Size(1200, 900));
+
+{
+  const path = new paper.Path.Rectangle({
+    point: [10, 10],
+    size: [40, 40],
+    insert: false,
+  });
+  assert.throws(
+    () => offset(path, Number.NaN, { insert: false }),
+    /Offset distance must be a finite number/
+  );
+  assert.throws(
+    () => offsetStroke(path, Number.POSITIVE_INFINITY, { insert: false }),
+    /Offset distance must be a finite number/
+  );
+  assert.throws(
+    () => analyze(path, path, Number.NaN),
+    /Offset distance must be a finite number/
+  );
+  assert.throws(
+    () => offset(path, 5, { insert: false, algorithm: 'unknown' }),
+    /Unsupported offset algorithm/
+  );
+  assert.throws(
+    () => offset(new paper.Path({ insert: false }), 5, { insert: false }),
+    /at least one non-zero-length curve/
+  );
+  const clone = offset(path, 0, { insert: false });
+  assert.notStrictEqual(clone, path);
+  assert.strictEqual(clone.pathData, path.pathData);
+}
 
 {
   const path = new paper.Path.Rectangle({
@@ -103,6 +174,18 @@ paper.setup(new paper.Size(1200, 900));
   assert.strictEqual(result.className, 'Path');
   approx(result.area, 2500, 0.001, 'rectangle offset area');
   assert.deepStrictEqual(analyze(path, result, 5).warnings, []);
+}
+
+{
+  const path = new paper.Path({
+    segments: [[0, 0], [20, 20], [0, 20], [20, 0]],
+    closed: true,
+    insert: false,
+  });
+  const quality = analyze(path, path, 1);
+
+  assert.ok(quality.selfIntersections > 0, 'crossing geometry should be reported as self-intersecting');
+  assert.ok(quality.warnings.includes('self-intersection'));
 }
 
 {
@@ -216,26 +299,21 @@ paper.setup(new paper.Size(1200, 900));
 }
 
 {
-  const legacySource = makeLegacyStressStar(10, false);
-  const autoSource = makeLegacyStressStar(10, false);
-  const legacy = offset(legacySource, -11, {
-    insert: false,
-    join: 'round',
-    limit: 4,
-    algorithm: 'robust',
+  ['adaptive', 'auto'].forEach((algorithm) => {
+    const source = makeLegacyStressStar(10, false);
+    const result = offset(source, -11, {
+      insert: false,
+      join: 'round',
+      limit: 4,
+      algorithm,
+    });
+    approx(
+      medianBoundaryDistance(source, result),
+      11,
+      0.5,
+      `${algorithm} should preserve the requested inward distance`
+    );
   });
-  const result = offset(autoSource, -11, {
-    insert: false,
-    join: 'round',
-    limit: 4,
-    algorithm: 'auto',
-  });
-  const legacyQuality = analyze(legacySource, legacy, -11);
-  const resultQuality = analyze(autoSource, result, -11);
-
-  assert.ok(legacyQuality.warnings.includes('negative-offset-collapse'), 'strict inward star should report collapse');
-  assert.strictEqual(resultQuality.warnings.includes('negative-offset-collapse'), false);
-  assert.ok(resultQuality.score < legacyQuality.score, 'auto should avoid aggressive inward collapse');
 }
 
 {
@@ -265,9 +343,28 @@ paper.setup(new paper.Size(1200, 900));
     });
     const quality = analyze(source, result, distance);
 
-    assert.deepStrictEqual(quality.warnings, [], `hook hole inward offset ${distance} should stay clean`);
-    assert.strictEqual(quality.selfIntersections, 0, `hook hole inward offset ${distance} should not self-intersect`);
+    if (distance === -80) {
+      assert.deepStrictEqual(quality.warnings, [], `hook hole inward offset ${distance} should stay clean`);
+      assert.strictEqual(quality.selfIntersections, 0, `hook hole inward offset ${distance} should not self-intersect`);
+    } else {
+      assert.strictEqual(quality.segmentCount, 0, `hook hole inward offset ${distance} should be fully eroded`);
+      assert.ok(quality.warnings.includes('empty-result'));
+    }
   });
+}
+
+{
+  const source = makeConcaveNestedCompound();
+  const result = offset(source, 2, {
+    insert: false,
+    join: 'miter',
+    algorithm: 'robust',
+  });
+
+  assert.strictEqual(source.children[0].contains(source.children[1].bounds.center), false);
+  assert.strictEqual(source.children[0].contains(source.children[1].interiorPoint), true);
+  assert.strictEqual(result.contains(new paper.Point(10, 50)), false, 'concave compound hole should remain a hole');
+  assert.strictEqual(result.contains(new paper.Point(50, 50)), false, 'concave outer cavity should stay outside');
 }
 
 {

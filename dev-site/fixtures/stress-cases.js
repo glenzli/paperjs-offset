@@ -168,8 +168,8 @@
     return result;
   }
 
-  function add(cases, id, title, kind, operation, distance, options, draw) {
-    cases.push({
+  function add(cases, id, title, kind, operation, distance, options, draw, expectations) {
+    cases.push(Object.assign({
       id: id,
       title: title,
       kind: kind,
@@ -177,7 +177,7 @@
       distance: distance,
       options: options || {},
       draw: draw
-    });
+    }, expectations || {}));
   }
 
   function createStressCases() {
@@ -297,7 +297,8 @@
 
     add(cases, 'hook-hole-in', 'Hook shape with hole inward', 'boundary-compound',
       'offset', -140, { join: 'miter', limit: 10 },
-      function() { return makeHookWithHole(); });
+      function() { return makeHookWithHole(); },
+      { allowEmpty: true });
 
     for (var n = 0; n < 10; n += 1) {
       (function(index) {
@@ -382,11 +383,29 @@
           insert: false
         });
       }],
+      ['deep-subdivision-in', 'Deep subdivision inward', 'offset', -19.407823289744556, { join: 'miter', limit: 4 }, function() {
+        return new paper.Path({
+          pathData: 'M69.9548,0.10722c-11.79924,11.09869 -41.44583,12.54592 -49.75155,16.02362c-8.30572,3.4777 4.72942,8.98588 2.14647,18.91414c-2.58295,9.92826 -20.78398,24.2766 -37.17772,27.67717c-16.39374,3.40057 -30.98019,-4.14663 -27.37924,-15.00638c3.60095,-10.85975 25.3893,-25.03204 17.31218,-40.15593c-8.07712,-15.12389 -46.0197,-31.19938 -48.97284,-37.14421c-2.95314,-5.94483 29.08315,-1.75899 44.00762,-10.2345c14.92446,-8.4755 12.73709,-29.61234 15.83183,-28.52174c3.09474,1.0906 11.4716,24.40865 26.24635,30.7047c14.77476,6.29605 35.94742,-4.42991 49.62001,0.67817c13.67259,5.10807 19.91613,25.96627 8.11688,37.06497z',
+          insert: false
+        });
+      }],
+      ['closed-fragment-in', 'Closed path fragment cleanup', 'offset', -14.979941526893526, { join: 'bevel', limit: 4 }, function() {
+        return new paper.Path({
+          pathData: 'M49.09129,0.05835c-10.45768,21.49507 17.84943,36.19836 17.2996,35.56729c-0.54983,-0.63107 -29.9566,-16.5965 -46.27402,-0.50183c-16.31742,16.09467 -19.5455,64.24943 -21.26117,63.26715c-1.71568,-0.98227 -1.91896,-51.10158 -18.31021,-61.82711c-16.39126,-10.72553 -48.97049,17.94272 -65.82464,15.68515c-16.85415,-2.25757 -17.98321,-35.44095 -16.15188,-61.22194c1.83133,-25.78099 6.62305,-44.15958 18.47229,-45.86052c11.84924,-1.70094 30.75599,13.27578 44.4359,-1.94892c13.67991,-15.22469 22.13298,-60.65079 25.39957,-53.47417c3.26659,7.17662 1.34671,66.95595 28.98636,80.95839c27.63965,14.00244 84.83884,-17.77201 88.84231,-19.1933c4.00346,-1.42129 -45.15644,27.05473 -55.61412,48.54979z',
+          insert: false
+        });
+      }],
+      ['fully-eroded-polygon-in', 'Fully eroded polygon inward', 'offset', -16.15878562722355, { join: 'round', limit: 4 }, function() {
+        return new paper.Path({
+          pathData: 'M33.55739,-10.26909l-31.08343,25.19445l-14.08615,-10.79424l1.98763,-13.4416l26.50794,-25.33233z',
+          insert: false
+        });
+      }, { allowEmpty: true }],
       ['jagged-silhouette-out', 'Jagged silhouette outward', 'offset', 10, {}, function() {
         return makeJaggedSilhouette();
       }]
     ].forEach(function(item) {
-      add(cases, item[0], item[1], 'edge-case', item[2], item[3], item[4], item[5]);
+      add(cases, item[0], item[1], 'edge-case', item[2], item[3], item[4], item[5], item[6]);
     });
 
     return cases;

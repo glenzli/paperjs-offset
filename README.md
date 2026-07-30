@@ -4,12 +4,6 @@
 
 Language: [English](#english) | [中文](#中文)
 
-> **Temporary notice / 临时提示**
->
-> **EN:** The GitHub-hosted project page may be temporarily unavailable because the maintainer's GitHub account has unexpectedly been flagged. The maintainer is appealing the account status, but the recovery timeline is currently unknown. During this period, use the [GitLab mirror](https://gitlab.com/glenzli/paperjs-offset) to view the project. The npm package remains available; this is an account-status issue, not a project shutdown.
->
-> **中文：** 由于维护者 GitHub 账号当前被异常标记（flagged），GitHub 托管的项目页面可能暂时无法访问。维护者正在申诉账号状态，但恢复时间尚不可知。此期间可以通过 [GitLab 镜像](https://gitlab.com/glenzli/paperjs-offset) 查看项目。npm 包仍可使用；这是账号状态问题，不是项目停止维护或下架。
-
 <a id="中文"></a>
 
 ## 中文
@@ -183,12 +177,12 @@ interface OffsetOptions {
 
 `algorithm: 'auto'` 是推荐默认值。它会尝试可用策略，使用与 `analyze` 相同的质量函数对候选结果评分，并返回评分最低的结果。
 
-`adaptive` 有意保持保守。当严格结果看起来像 miter 尖刺，或负向偏移过度侵蚀时，它可能选择更安全的连接方式或更小的向内 fallback 距离。如果必须严格使用请求的距离，请使用 `robust`、`split` 或 `legacy`。
+`adaptive` 会严格保留请求的偏移距离，并在默认连接方式可能产生 miter 尖刺时尝试更安全的 round join。
 
 | 模式 | 使用场景 |
 | --- | --- |
 | `auto` | 推荐的应用默认值，会选择评分最佳的结果。 |
-| `adaptive` | 先尝试严格 robust 结果，再为 miter 尖刺和激进内缩提供更安全的 fallback。 |
+| `adaptive` | 先尝试 robust 结果，再为可能的 miter 尖刺尝试 round join，同时保持请求的偏移距离。 |
 | `robust` | 对凹角和自交描边轮廓做额外清理。 |
 | `split` | 拆分自交曲线，清理程度低于 `robust`。 |
 | `legacy` | 尽量接近旧版本行为，适合需要保持历史输出的场景。 |
@@ -208,7 +202,7 @@ interface OffsetQuality {
 }
 ```
 
-警告可能包括空结果、非有限 bounds、自交、非预期面积变化、包含关系错误、中心偏移、负向偏移坍缩和距离坍缩。
+警告可能包括空结果、非有限 bounds、自交、非预期面积变化、包含关系错误、中心偏移和距离坍缩。
 
 ### 浏览器用法
 
@@ -340,6 +334,7 @@ npm test
 npm run test:stress
 npm run test:stress:quick
 npm run test:stress:boundary
+npm run benchmark
 ```
 
 常用构建命令：
@@ -350,7 +345,7 @@ npm run build:ts
 npm run build:bundles
 ```
 
-`npm test` 会重新构建包、运行 smoke tests，然后运行完整生成式 stress corpus。普通 gallery 分组可使用 `test:stress:quick`，更激进的 boundary 分组可使用 `test:stress:boundary`。
+`npm test` 会重新构建包、运行 smoke tests，然后运行完整生成式 stress corpus。普通 gallery 分组可使用 `test:stress:quick`，更激进的 boundary 分组可使用 `test:stress:boundary`。`npm run benchmark` 会对同一语料输出各算法的总耗时、P50、P95、最大耗时和最慢案例，但不设置容易受机器波动影响的硬性时间门槛。
 
 ### 发布
 
@@ -551,12 +546,12 @@ interface OffsetOptions {
 
 `algorithm: 'auto'` is the recommended default. It tries the available strategies, scores each candidate with the same quality function exposed by `analyze`, and returns the lowest-scoring result.
 
-`adaptive` is intentionally conservative. When a strict result looks like a miter spike or an over-eroded inward offset, it may choose a safer join or a smaller inward fallback distance. Use `robust`, `split`, or `legacy` when the requested distance must be treated strictly.
+`adaptive` preserves the requested offset distance and may try a safer round join when the default join could produce a miter spike.
 
 | Mode | Use case |
 | --- | --- |
 | `auto` | Recommended application default. Chooses the best-scored result. |
-| `adaptive` | Tries strict robust output first, then safer fallbacks for miter spikes and aggressive inward collapse. |
+| `adaptive` | Tries robust output first, then a round join for possible miter spikes while preserving the requested distance. |
 | `robust` | Extra cleanup for concave joins and self-intersecting stroke outlines. |
 | `split` | Splits self-intersecting curves with less cleanup than `robust`. |
 | `legacy` | Closest behavior to older releases when preserving historical output matters. |
@@ -576,7 +571,7 @@ interface OffsetQuality {
 }
 ```
 
-Warnings can include empty results, non-finite bounds, self-intersections, unexpected area changes, containment errors, center shift, negative offset collapse, and distance collapse.
+Warnings can include empty results, non-finite bounds, self-intersections, unexpected area changes, containment errors, center shift, and distance collapse.
 
 ### Browser Usage
 
@@ -708,6 +703,7 @@ npm test
 npm run test:stress
 npm run test:stress:quick
 npm run test:stress:boundary
+npm run benchmark
 ```
 
 Useful build commands:
@@ -718,7 +714,7 @@ npm run build:ts
 npm run build:bundles
 ```
 
-`npm test` rebuilds the package, runs smoke tests, and then runs the full generated stress corpus. Use `test:stress:quick` for the normal gallery groups, and `test:stress:boundary` for the aggressive boundary groups.
+`npm test` rebuilds the package, runs smoke tests, and then runs the full generated stress corpus. Use `test:stress:quick` for the normal gallery groups, and `test:stress:boundary` for the aggressive boundary groups. `npm run benchmark` reports total, P50, P95, maximum duration, and the slowest cases for each algorithm without enforcing a machine-sensitive timing threshold.
 
 ### Release
 

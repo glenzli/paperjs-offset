@@ -42,6 +42,7 @@
     "test:stress:quick": "npm run build && node test/stress.js --groups=closed-offset,smooth-offset,compound-offset,stroke-offset,edge-case",
     "test:stress:boundary": "npm run build && node test/stress.js --groups=boundary-offset,boundary-compound,boundary-stroke",
     "test:stress:run": "node test/stress.js",
+    "benchmark": "npm run build && node test/benchmark.js",
     "release:check": "npm run lint && npm test && npm run build:dev-site && npm run test:dev-site:run && npm audit --registry=https://registry.npmjs.org && npm pack --dry-run --ignore-scripts",
     "release:prepare": "node scripts/prepare-release.js",
     "release:major": "npm run release:prepare -- major",
