@@ -76,6 +76,41 @@
     return subtractAll(outer, cutters);
   }
 
+  function makeNestedIslandCompound(withInnerHole) {
+    var contours = [
+      { radius: 100, clockwise: true },
+      { radius: 60, clockwise: false },
+      { radius: 20, clockwise: true }
+    ];
+    if (withInnerHole) {
+      contours.push({ radius: 8, clockwise: false });
+    }
+    return new paper.CompoundPath({
+      children: contours.map(function(contour) {
+        var child = new paper.Path.Circle({
+          center: [0, 0],
+          radius: contour.radius,
+          insert: false
+        });
+        if (child.clockwise !== contour.clockwise) {
+          child.reverse();
+        }
+        return child;
+      }),
+      insert: false
+    });
+  }
+
+  function makeUnevenDisjointCompound() {
+    return new paper.CompoundPath({
+      children: [
+        new paper.Path.Circle({ center: [-130, 0], radius: 100, insert: false }),
+        new paper.Path.Circle({ center: [130, 0], radius: 3, insert: false })
+      ],
+      insert: false
+    });
+  }
+
   function makeRectCircleHole(width, height, radius) {
     var rect = new paper.Path.Rectangle({
       point: [-width / 2, -height / 2],
@@ -299,6 +334,18 @@
       'offset', -140, { join: 'miter', limit: 10 },
       function() { return makeHookWithHole(); },
       { allowEmpty: true });
+
+    add(cases, 'nested-island-out', 'Nested island outward', 'boundary-compound',
+      'offset', 8, { join: 'round', limit: 4 },
+      function() { return makeNestedIslandCompound(false); });
+
+    add(cases, 'nested-island-in', 'Nested island inward', 'boundary-compound',
+      'offset', -6, { join: 'round', limit: 4 },
+      function() { return makeNestedIslandCompound(true); });
+
+    add(cases, 'small-disjoint-component-out', 'Small disjoint component outward', 'boundary-compound',
+      'offset', 3, { join: 'round', limit: 4 },
+      function() { return makeUnevenDisjointCompound(); });
 
     for (var n = 0; n < 10; n += 1) {
       (function(index) {

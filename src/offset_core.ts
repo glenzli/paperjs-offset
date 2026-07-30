@@ -5,6 +5,7 @@ export type StrokeCapType = 'round' | 'butt';
 export type OffsetAlgorithm = 'auto' | 'adaptive' | 'legacy' | 'split' | 'robust';
 export type PathType = paper.Path | paper.CompoundPath;
 const MAX_RECURSION_DEPTH = 12;
+const AREA_EPSILON_FACTOR = Number.EPSILON * 1024;
 type HandleType = 'handleIn' | 'handleOut';
 
 interface OffsetStrategy {
@@ -247,8 +248,13 @@ function reduceSingleChildCompoundPath(path: PathType) {
   return path;
 }
 
-/** Normalize a path, always clockwise, non-self-intersection, ignore really small components, and no one-component compound path. */
-function normalize(path: PathType, areaThreshold = 0.01) {
+function getAreaEpsilon(path: PathType) {
+  const scale = Math.max(path.bounds.width, path.bounds.height, 1);
+  return Math.max(scale * scale * AREA_EPSILON_FACTOR, Number.EPSILON);
+}
+
+/** Normalize a path, always clockwise, non-self-intersection, remove numerical debris, and no one-component compound path. */
+function normalize(path: PathType) {
   if (path instanceof paper.CompoundPath) {
     path.children
       .filter((child) => !(child as paper.Path).closed)
@@ -258,7 +264,7 @@ function normalize(path: PathType, areaThreshold = 0.01) {
     }
   }
   if (path.closed) {
-    const ignoreArea = Math.abs(path.area * areaThreshold);
+    const ignoreArea = getAreaEpsilon(path);
     if (!path.clockwise) {
       path.reverse();
     }
@@ -638,6 +644,44 @@ function offsetCompoundChild(child: paper.Path, parent: PathType, offset: number
   return childOffset;
 }
 
+interface CompoundContourGroup {
+  outer: paper.Path;
+  holes: paper.Path[];
+}
+
+function groupCompoundContours(children: paper.Path[]) {
+  const groups = children
+    .filter((child) => child.clockwise)
+    .map((outer) => ({ outer, holes: [] } as CompoundContourGroup));
+  const standalone = new Array<paper.Path>();
+
+  children.filter((child) => !child.clockwise).forEach((hole) => {
+    const holeArea = Math.abs(hole.area);
+    let parentIndex = -1;
+    let parentArea = Number.POSITIVE_INFINITY;
+    groups.forEach((group, index) => {
+      const outerArea = Math.abs(group.outer.area);
+      if (outerArea > holeArea && outerArea < parentArea && group.outer.contains(hole.interiorPoint)) {
+        parentIndex = index;
+        parentArea = outerArea;
+      }
+    });
+    if (parentIndex >= 0) {
+      groups[parentIndex].holes.push(hole);
+    } else {
+      standalone.push(hole);
+    }
+  });
+
+  return { groups, standalone };
+}
+
+function asCompoundOffsetPath(value: PathType | paper.Item[]) {
+  return value instanceof Array
+    ? new paper.CompoundPath({ children: value, insert: false })
+    : value;
+}
+
 function offsetCompoundShape(path: paper.CompoundPath, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {
   const children = (path.children as paper.Path[]).filter((child) => child.segments.length > 1);
   const outers = children.filter((child) => child.clockwise);
@@ -648,28 +692,29 @@ function offsetCompoundShape(path: paper.CompoundPath, offset: number, join: Str
     return new paper.CompoundPath({ children: offsetParts.flat().filter((child) => !!child) as paper.Item[], insert: false });
   }
 
-  const pieces = outers.map((outer) => {
-    const outerOffset = offsetCompoundChild(outer, path, offset, join, limit, strategy);
-    let result = outerOffset instanceof Array
-      ? new paper.CompoundPath({ children: outerOffset, insert: false })
-      : outerOffset as PathType;
-    holes.forEach((hole) => {
-      if (!outer.contains(hole.interiorPoint)) {
-        return;
-      }
+  const contours = groupCompoundContours(children);
+  const pieces = contours.groups.map((group) => {
+    const outerOffset = offsetCompoundChild(group.outer, path, offset, join, limit, strategy);
+    let result = asCompoundOffsetPath(outerOffset as PathType | paper.Item[]);
+    group.holes.forEach((hole) => {
       const holeOffset = offsetCompoundChild(hole, path, offset, join, limit, strategy);
       if (!holeOffset) {
         return;
       }
-      const holePath = holeOffset instanceof Array
-        ? new paper.CompoundPath({ children: holeOffset, insert: false })
-        : holeOffset as PathType;
+      const holePath = asCompoundOffsetPath(holeOffset);
       const next = result.subtract(holePath, { insert: false }) as PathType;
       result.remove();
       holePath.remove();
       result = next;
     });
     return result;
+  });
+
+  contours.standalone.forEach((child) => {
+    const childOffset = offsetCompoundChild(child, path, offset, join, limit, strategy);
+    if (childOffset) {
+      pieces.push(asCompoundOffsetPath(childOffset));
+    }
   });
 
   if (pieces.length === 1) {

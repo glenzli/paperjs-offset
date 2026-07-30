@@ -119,6 +119,41 @@ function makeConcaveNestedCompound() {
   });
 }
 
+function makeNestedIslandCompound(withInnerHole) {
+  const contours = [
+    { radius: 100, clockwise: true },
+    { radius: 60, clockwise: false },
+    { radius: 20, clockwise: true },
+  ];
+  if (withInnerHole) {
+    contours.push({ radius: 8, clockwise: false });
+  }
+  return new paper.CompoundPath({
+    children: contours.map(({ radius, clockwise }) => {
+      const child = new paper.Path.Circle({
+        center: [0, 0],
+        radius,
+        insert: false,
+      });
+      if (child.clockwise !== clockwise) {
+        child.reverse();
+      }
+      return child;
+    }),
+    insert: false,
+  });
+}
+
+function makeUnevenDisjointCompound() {
+  return new paper.CompoundPath({
+    children: [
+      new paper.Path.Circle({ center: [-130, 0], radius: 100, insert: false }),
+      new paper.Path.Circle({ center: [130, 0], radius: 3, insert: false }),
+    ],
+    insert: false,
+  });
+}
+
 function medianBoundaryDistance(source, result, sampleCount = 64) {
   const distances = [];
   for (let i = 0; i < sampleCount; i += 1) {
@@ -365,6 +400,47 @@ paper.setup(new paper.Size(1200, 900));
   assert.strictEqual(source.children[0].contains(source.children[1].interiorPoint), true);
   assert.strictEqual(result.contains(new paper.Point(10, 50)), false, 'concave compound hole should remain a hole');
   assert.strictEqual(result.contains(new paper.Point(50, 50)), false, 'concave outer cavity should stay outside');
+}
+
+{
+  [-1, 1].forEach((distance) => {
+    const source = makeNestedIslandCompound(false);
+    const result = offset(source, distance, {
+      insert: false,
+      join: 'round',
+      algorithm: 'robust',
+    });
+
+    assert.strictEqual(result.contains(new paper.Point(0, 0)), true, `nested island offset ${distance} should keep the island`);
+    assert.strictEqual(result.contains(new paper.Point(40, 0)), false, `nested island offset ${distance} should keep the outer hole`);
+    assert.strictEqual(result.contains(new paper.Point(80, 0)), true, `nested island offset ${distance} should keep the outer shell`);
+  });
+}
+
+{
+  const source = makeNestedIslandCompound(true);
+  const result = offset(source, 1, {
+    insert: false,
+    join: 'round',
+    algorithm: 'robust',
+  });
+
+  assert.strictEqual(result.contains(new paper.Point(0, 0)), false, 'four-level compound should keep the inner hole');
+  assert.strictEqual(result.contains(new paper.Point(15, 0)), true, 'four-level compound should keep the island');
+  assert.strictEqual(result.contains(new paper.Point(40, 0)), false, 'four-level compound should keep the outer hole');
+  assert.strictEqual(result.contains(new paper.Point(80, 0)), true, 'four-level compound should keep the outer shell');
+}
+
+{
+  const source = makeUnevenDisjointCompound();
+  const result = offset(source, 1, {
+    insert: false,
+    join: 'round',
+    algorithm: 'robust',
+  });
+
+  assert.strictEqual(result.contains(new paper.Point(-130, 0)), true, 'large disjoint component should remain');
+  assert.strictEqual(result.contains(new paper.Point(130, 0)), true, 'small disjoint component should not be removed by relative area filtering');
 }
 
 {
