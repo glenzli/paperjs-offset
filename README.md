@@ -183,7 +183,7 @@ interface OffsetOptions {
 
 ### 算法模式
 
-`algorithm: 'auto'` 是推荐默认值。它先生成 `adaptive` 结果；质量检查无警告时直接返回，只有困难几何出现警告时才继续尝试其他策略，并返回评分最低的结果。
+`algorithm: 'auto'` 是推荐默认值。它先生成 `adaptive` 结果；质量检查没有结构性问题时直接返回，只有自交、空结果、包含关系错误等信号才会继续尝试其他策略，并返回评分最低的结果。
 
 `adaptive` 会严格保留请求的偏移距离，并在默认连接方式可能产生 miter 尖刺时尝试更安全的 round join。
 
@@ -342,6 +342,7 @@ npm test
 npm run test:stress
 npm run test:stress:quick
 npm run test:stress:boundary
+npm run test:fuzz
 npm run benchmark
 ```
 
@@ -353,7 +354,7 @@ npm run build:ts
 npm run build:bundles
 ```
 
-`npm test` 会重新构建包、运行 smoke tests，然后运行完整生成式 stress corpus。普通 gallery 分组可使用 `test:stress:quick`，更激进的 boundary 分组可使用 `test:stress:boundary`。`npm run benchmark` 会对同一语料输出各算法的总耗时、P50、P95、最大耗时和最慢案例，但不设置容易受机器波动影响的硬性时间门槛。
+`npm test` 会重新构建包、运行 smoke tests、完整生成式 stress corpus 和固定 seed 的 fuzz 验证。普通 gallery 分组可使用 `test:stress:quick`，更激进的 boundary 分组可使用 `test:stress:boundary`。`test:fuzz` 默认运行 400 个随机案例，也可用 `node test/fuzz.js --cases=1000 --seed=1592594996` 扩大验证。`npm run benchmark` 会对同一语料输出各算法的总耗时、P50、P95、最大耗时和最慢案例，但不设置容易受机器波动影响的硬性时间门槛。
 
 ### 发布
 
@@ -560,7 +561,7 @@ interface OffsetOptions {
 
 ### Algorithms
 
-`algorithm: 'auto'` is the recommended default. It starts with the `adaptive` result and returns it immediately when quality checks are clean. Only geometry with warnings triggers the remaining strategies and lowest-score selection.
+`algorithm: 'auto'` is the recommended default. It starts with the `adaptive` result and returns it immediately when quality checks find no structural issue. Signals such as self-intersection, an empty result, or containment errors trigger the remaining strategies and lowest-score selection.
 
 `adaptive` preserves the requested offset distance and may try a safer round join when the default join could produce a miter spike.
 
@@ -719,6 +720,7 @@ npm test
 npm run test:stress
 npm run test:stress:quick
 npm run test:stress:boundary
+npm run test:fuzz
 npm run benchmark
 ```
 
@@ -730,7 +732,7 @@ npm run build:ts
 npm run build:bundles
 ```
 
-`npm test` rebuilds the package, runs smoke tests, and then runs the full generated stress corpus. Use `test:stress:quick` for the normal gallery groups, and `test:stress:boundary` for the aggressive boundary groups. `npm run benchmark` reports total, P50, P95, maximum duration, and the slowest cases for each algorithm without enforcing a machine-sensitive timing threshold.
+`npm test` rebuilds the package, runs smoke tests, the full generated stress corpus, and deterministic seeded fuzz validation. Use `test:stress:quick` for the normal gallery groups, and `test:stress:boundary` for the aggressive boundary groups. `test:fuzz` runs 400 random cases by default; use `node test/fuzz.js --cases=1000 --seed=1592594996` for a larger run. `npm run benchmark` reports total, P50, P95, maximum duration, and the slowest cases for each algorithm without enforcing a machine-sensitive timing threshold.
 
 ### Release
 

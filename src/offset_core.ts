@@ -370,7 +370,13 @@ function offsetSimpleShape(path: paper.Path, offset: number, join: StrokeJoinTyp
   if (source.clockwise !== path.clockwise) {
     newPath.reverse();
   }
-  return normalize(newPath);
+  let result = normalize(newPath);
+  if (source.closed && offset < 0 && hasContainmentLeak(source, result, offset)) {
+    const clipped = result.intersect(source, { insert: false }) as PathType;
+    result.remove();
+    result = normalize(clipped);
+  }
+  return result;
 }
 
 function makeRoundCap(from: paper.Segment, to: paper.Segment, offset: number) {
@@ -484,6 +490,13 @@ function samplePoints(path: PathType, maxPerChild = 16) {
     }
   });
   return points;
+}
+
+function hasContainmentLeak(source: PathType, result: PathType, offset: number) {
+  const tolerance = Math.max(Math.abs(offset) * 0.08, 0.5);
+  return samplePoints(result).some((point) => {
+    return !containsPoint(source, point) && distanceToPath(source, point) > tolerance;
+  });
 }
 
 function containsPoint(path: PathType, point: paper.Point) {
@@ -626,6 +639,17 @@ interface OffsetCandidate {
   quality?: OffsetQuality;
 }
 
+function needsAutoFallback(quality: OffsetQuality) {
+  return quality.warnings.some((warning) => warning !== 'offset-distance-collapse');
+}
+
+function isExpectedEmptyInwardResult(source: PathType, offset: number, quality: OffsetQuality) {
+  return source.closed
+    && offset < 0
+    && quality.segmentCount === 0
+    && !hasInteriorClearance(source, offset);
+}
+
 function pickBestResult(source: PathType, offset: number, makeResult: (strategy: OffsetStrategy) => OffsetCandidate): PathType {
   let bestResult: PathType | null = null;
   let bestQuality: OffsetQuality | null = null;
@@ -641,7 +665,8 @@ function pickBestResult(source: PathType, offset: number, makeResult: (strategy:
         bestResult = candidate.result;
         bestQuality = quality;
       }
-      if (strategy.algorithm === 'adaptive' && quality.warnings.length === 0) {
+      if (strategy.algorithm === 'adaptive'
+        && (!needsAutoFallback(quality) || isExpectedEmptyInwardResult(source, offset, quality))) {
         return candidate.result;
       }
     } catch (error) {
@@ -802,9 +827,11 @@ function pickBestCandidate(source: PathType, offset: number, candidates: OffsetC
   if (candidates.length === 1) {
     return bestCandidate;
   }
-  let bestQuality = analyzeOffsetQuality(source, bestCandidate.result, offset, bestCandidate.qualityOptions);
+  let bestQuality = bestCandidate.quality
+    || analyzeOffsetQuality(source, bestCandidate.result, offset, bestCandidate.qualityOptions);
   for (let i = 1; i < candidates.length; i += 1) {
-    const quality = analyzeOffsetQuality(source, candidates[i].result, offset, candidates[i].qualityOptions);
+    const quality = candidates[i].quality
+      || analyzeOffsetQuality(source, candidates[i].result, offset, candidates[i].qualityOptions);
     if (quality.score < bestQuality.score) {
       bestCandidate = candidates[i];
       bestQuality = quality;
@@ -830,10 +857,15 @@ function isSeverelyCollapsedInwardResult(source: PathType, result: PathType, off
     return false;
   }
 
+  return !hasInteriorClearance(source, offset);
+}
+
+function hasInteriorClearance(source: PathType, offset: number) {
   const requiredClearance = Math.abs(offset) * 0.98;
   const candidates = getChildPaths(source).map((child) => child.interiorPoint);
   const bounds = source.bounds;
-  const divisions = 10;
+  candidates.push(bounds.center);
+  const divisions = 11;
   for (let y = 0; y < divisions; y += 1) {
     for (let x = 0; x < divisions; x += 1) {
       candidates.push(new paper.Point(
@@ -842,15 +874,67 @@ function isSeverelyCollapsedInwardResult(source: PathType, result: PathType, off
       ));
     }
   }
-  return !candidates.some((point) => {
-    return containsPoint(source, point) && distanceToPath(source, point) >= requiredClearance;
-  });
+  let bestPoint: paper.Point | null = null;
+  let bestClearance = 0;
+  const checkPoint = (point: paper.Point) => {
+    if (!containsPoint(source, point)) {
+      return false;
+    }
+    const clearance = distanceToPath(source, point);
+    if (clearance > bestClearance) {
+      bestPoint = point;
+      bestClearance = clearance;
+    }
+    return clearance >= requiredClearance;
+  };
+  if (candidates.some(checkPoint)) {
+    return true;
+  }
+
+  let stepX = bounds.width / divisions;
+  let stepY = bounds.height / divisions;
+  for (let iteration = 0; iteration < 6 && bestPoint; iteration += 1) {
+    const center = bestPoint as paper.Point;
+    const nearby = new Array<paper.Point>();
+    for (let y = -1; y <= 1; y += 1) {
+      for (let x = -1; x <= 1; x += 1) {
+        nearby.push(center.add(new paper.Point(stepX * x, stepY * y)));
+      }
+    }
+    if (nearby.some(checkPoint)) {
+      return true;
+    }
+    stepX /= 2;
+    stepY /= 2;
+  }
+  return false;
 }
 
 function makeEmptyOffsetResult(source: PathType) {
   const result = new paper.Path({ insert: false });
   result.copyAttributes(source, false);
   return result;
+}
+
+function recoverInwardOffsetFromComplement(
+  source: PathType,
+  offset: number,
+  join: StrokeJoinType,
+  limit: number,
+  strategy: OffsetStrategy
+) {
+  const padding = Math.abs(offset) * 4 + Math.max(source.bounds.width, source.bounds.height);
+  const frame = new paper.Path.Rectangle({
+    rectangle: source.bounds.expand(padding),
+    insert: false,
+  });
+  const background = frame.subtract(source, { insert: false }) as PathType;
+  const expandedBackground = offsetPathWithStrategy(background, Math.abs(offset), join, limit, strategy);
+  const recovered = normalize(frame.subtract(expandedBackground, { insert: false }) as PathType);
+  background.remove();
+  expandedBackground.remove();
+  frame.remove();
+  return recovered;
 }
 
 function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy) {
@@ -861,6 +945,15 @@ function offsetPathAdaptive(path: PathType, offset: number, join: StrokeJoinType
     { join },
     () => offsetPathWithStrategy(path, offset, join, limit, baseStrategy)
   );
+
+  if (join !== 'round' && candidates.length > 0) {
+    const primary = candidates[0];
+    primary.quality = analyzeOffsetQuality(path, primary.result, offset, primary.qualityOptions);
+    if ((!needsAutoFallback(primary.quality) || isExpectedEmptyInwardResult(path, offset, primary.quality))
+      && !isSeverelyCollapsedInwardResult(path, primary.result, offset)) {
+      return primary;
+    }
+  }
 
   if (join !== 'round') {
     addAdaptiveCandidate(
@@ -902,6 +995,14 @@ function offsetPathWithStrategy(path: PathType, offset: number, join: StrokeJoin
   }
   if (shouldNormalizeResult && needsAdditionalNormalization(result)) {
     result = normalize(result);
+  }
+  const shouldRecoverInwardOffset = offset < 0
+    && path.closed
+    && getSegments(result).length === 0
+    && hasInteriorClearance(nonSIPath, offset);
+  if (shouldRecoverInwardOffset) {
+    result.remove();
+    result = recoverInwardOffsetFromComplement(nonSIPath, offset, join, limit, strategy);
   }
   result.copyAttributes(nonSIPath, false);
   result.remove();
@@ -954,6 +1055,14 @@ function offsetStrokeAdaptive(path: PathType, offset: number, join: StrokeJoinTy
     { stroke: true, join, cap },
     () => offsetStrokeWithStrategy(path, offset, join, cap, limit, baseStrategy)
   );
+
+  if ((join !== 'round' || cap !== 'round') && candidates.length > 0) {
+    const primary = candidates[0];
+    primary.quality = analyzeOffsetQuality(path, primary.result, offset, primary.qualityOptions);
+    if (!needsAutoFallback(primary.quality)) {
+      return primary;
+    }
+  }
 
   if (join !== 'round') {
     addAdaptiveCandidate(

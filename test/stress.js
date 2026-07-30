@@ -131,6 +131,15 @@ if (deepSubdivision) {
   );
 }
 
+const needleErosion = summaries.find((summary) => summary.id === 'needle-star-in-9');
+if (needleErosion) {
+  assert.strictEqual(
+    needleErosion.results.adaptive.warnings.includes('empty-result'),
+    false,
+    'adaptive should keep a healthy primary result instead of selecting a collapsed fallback'
+  );
+}
+
 if (failures.length > 0) {
   console.error(JSON.stringify({
     total: cases.length,
