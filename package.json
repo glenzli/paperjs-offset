@@ -1,6 +1,6 @@
 {
   "name": "paperjs-offset",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "An offset function for paperjs path.",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
