@@ -31,6 +31,7 @@
     "build": "npm run clean && npm run build:ts && npm run build:bundles",
     "build:ts": "tsc -p tsconfig.json",
     "build:bundles": "node build.js",
+    "generate:icon": "npm run build && node scripts/generate-icon.js",
     "build:dev-site": "npm run build && node scripts/build-dev-site.js",
     "prepack": "npm run build:dev-site",
     "prepublishOnly": "npm run release:check",
