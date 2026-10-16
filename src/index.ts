@@ -25,6 +25,10 @@ function assertFiniteNumber(value: number, name: string) {
   }
 }
 
+function hasOffsetCurves(path: paper.Path) {
+  return path.curves.some((curve) => Number.isFinite(curve.length) && curve.length > 0);
+}
+
 function resolveOptions(options?: OffsetOptions): ResolvedOffsetOptions {
   const join = options?.join ?? 'miter';
   const cap = options?.cap ?? 'butt';
@@ -59,9 +63,7 @@ function assertPath(path: PathType, requireCurve: boolean) {
   const children = path instanceof paper.CompoundPath
     ? path.children as paper.Path[]
     : [path];
-  const hasCurve = children.some((child) => {
-    return child.curves.some((curve) => Number.isFinite(curve.length) && curve.length > 0);
-  });
+  const hasCurve = children.some(hasOffsetCurves);
   if (!hasCurve) {
     throw new RangeError('Offset source must contain at least one non-zero-length curve');
   }
@@ -70,6 +72,35 @@ function assertPath(path: PathType, requireCurve: boolean) {
 function insertResult(source: PathType, result: PathType, options?: OffsetOptions) {
   if (!options || options.insert !== false) {
     (source.parent || paper.project.activeLayer).addChild(result);
+  }
+}
+
+function withGeometry<T>(path: PathType, use: (source: PathType) => T): T {
+  const children = path instanceof paper.CompoundPath ? path.children as paper.Path[] : [];
+  const needsTransform = !path.matrix.isIdentity()
+    || children.some((child) => !child.matrix.isIdentity());
+  const needsCopy = needsTransform || children.some((child) => !hasOffsetCurves(child));
+  const source = needsCopy ? path.clone({ insert: false }) as PathType : path;
+  try {
+    if (needsTransform) {
+      // Bake into a detached copy so every geometric operation uses parent coordinates.
+      if (source instanceof paper.CompoundPath) {
+        (source.children as paper.Path[]).forEach((child) => { child.applyMatrix = true; });
+      }
+      source.applyMatrix = true;
+    }
+    if (needsCopy && source instanceof paper.CompoundPath) {
+      source.children.slice().forEach((child) => {
+        if (!hasOffsetCurves(child as paper.Path)) {
+          child.remove();
+        }
+      });
+    }
+    return use(source);
+  } finally {
+    if (source !== path) {
+      source.remove();
+    }
   }
 }
 
@@ -82,13 +113,18 @@ export function offset(path: PathType, distance: number, options?: OffsetOptions
     insertResult(path, result, options);
     return result;
   }
-  const newPath = createOffsetPath(
-    path,
-    distance,
-    resolvedOptions.join,
-    resolvedOptions.limit,
-    resolvedOptions.algorithm
-  );
+  const newPath = withGeometry(path, (source) => {
+    if (source !== path) {
+      assertPath(source, true);
+    }
+    return createOffsetPath(
+      source,
+      distance,
+      resolvedOptions.join,
+      resolvedOptions.limit,
+      resolvedOptions.algorithm
+    );
+  });
   insertResult(path, newPath, options);
   return newPath;
 }
@@ -97,14 +133,19 @@ export function offsetStroke(path: PathType, distance: number, options?: OffsetO
   assertFiniteNumber(distance, 'Offset distance');
   assertPath(path, true);
   const resolvedOptions = resolveOptions(options);
-  const newPath = createOffsetStroke(
-    path,
-    distance,
-    resolvedOptions.join,
-    resolvedOptions.cap,
-    resolvedOptions.limit,
-    resolvedOptions.algorithm
-  );
+  const newPath = withGeometry(path, (source) => {
+    if (source !== path) {
+      assertPath(source, true);
+    }
+    return createOffsetStroke(
+      source,
+      Math.abs(distance),
+      resolvedOptions.join,
+      resolvedOptions.cap,
+      resolvedOptions.limit,
+      resolvedOptions.algorithm
+    );
+  });
   insertResult(path, newPath, options);
   return newPath;
 }
@@ -113,7 +154,9 @@ export function analyze(source: PathType, result: PathType, distance: number, op
   assertFiniteNumber(distance, 'Offset distance');
   assertPath(source, false);
   assertPath(result, false);
-  return analyzeOffsetQuality(source, result, distance, options || {});
+  return withGeometry(source, (geometrySource) => withGeometry(result, (geometryResult) => {
+    return analyzeOffsetQuality(geometrySource, geometryResult, distance, options || {});
+  }));
 }
 
 export class PaperOffset {

@@ -56,6 +56,8 @@ function analyze(
 
 这三个函数都接受 `paper.Path` 和 `paper.CompoundPath`。默认情况下，结果会插入当前 Paper.js project；如果希望自行管理返回对象，请传入 `insert: false`。
 
+`offsetStroke` 使用距离的绝对值，因此正负距离生成相同轮廓，零距离生成空轮廓。复合路径中的空路径、单点和零长度子路径会被跳过；非零偏移和描边操作遇到整个源对象都没有有效曲线时，会抛出 `RangeError`。保留在路径及其子路径矩阵中的变换会在副本中展开，偏移距离使用源对象父级坐标系，原始路径不会被修改。
+
 ### 安装
 
 ```sh
@@ -433,6 +435,8 @@ function analyze(
 - `analyze(source, result, distance, options)` scores generated geometry and reports warnings for hard cases.
 
 All three functions accept `paper.Path` and `paper.CompoundPath`. Results are inserted into the active Paper.js project by default; pass `insert: false` when you want to manage the returned item yourself.
+
+`offsetStroke` uses the absolute distance, so positive and negative distances produce the same outline and zero produces an empty outline. Empty, single-point, and zero-length compound children are skipped. Nonzero offsets and stroke operations reject a source with no usable curves with `RangeError`. Transforms retained in path and child matrices are baked into a copy, with distances measured in the source's parent coordinates. The original path is unchanged.
 
 ### Install
 

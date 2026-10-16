@@ -330,6 +330,10 @@ function getSegments(path: PathType) {
   }
 }
 
+function hasOffsetCurves(path: paper.Path) {
+  return path.curves.some((curve) => Number.isFinite(curve.length) && curve.length > 0);
+}
+
 /**
  * Remove impossible segments in negative offset condition.
  */
@@ -805,7 +809,7 @@ function asCompoundOffsetPath(value: PathType | paper.Item[]) {
 }
 
 function offsetCompoundShape(path: paper.CompoundPath, offset: number, join: StrokeJoinType, limit: number, strategy: OffsetStrategy): PathType {
-  const children = (path.children as paper.Path[]).filter((child) => child.segments.length > 1);
+  const children = (path.children as paper.Path[]).filter(hasOffsetCurves);
   const outers = children.filter((child) => child.clockwise);
   const holes = children.filter((child) => !child.clockwise);
 
@@ -1278,7 +1282,7 @@ function offsetStrokeWithStrategy(path: PathType, offset: number, join: StrokeJo
   if (nonSIPath instanceof paper.Path) {
     result = offsetSimpleStroke(nonSIPath, offset, join, cap, limit, strategy);
   } else {
-    const children = (nonSIPath.children as paper.Path[]).flatMap((c) => {
+    const children = (nonSIPath.children as paper.Path[]).filter(hasOffsetCurves).flatMap((c) => {
       return offsetSimpleStroke(c, offset, join, cap, limit, strategy);
     });
     result = children.reduce((c1, c2) => c1.unite(c2, { insert: false }) as PathType);

@@ -1,4 +1,24 @@
 const DEFAULT_LANG = 'en';
+const canvasProjects = new WeakMap();
+
+function releaseProjects(container) {
+  container.querySelectorAll('canvas').forEach((canvas) => {
+    const record = canvasProjects.get(canvas);
+    if (record) {
+      record.project.remove();
+      canvasProjects.delete(canvas);
+    }
+  });
+}
+
+function mountHandle(root) {
+  return {
+    destroy() {
+      releaseProjects(root);
+      root.remove();
+    }
+  };
+}
 
 function getGlobalValue(name) {
   if (typeof globalThis === 'undefined') {
@@ -55,6 +75,7 @@ function hasRuntime(options) {
 }
 
 function reset(container, className) {
+  releaseProjects(container);
   const root = document.createElement('section');
   root.className = `po-root ${className || ''}`.trim();
   root.appendChild(styleElement());
@@ -122,7 +143,17 @@ function fallback(root, data, options, image) {
 
 function withPaper(canvas, options, width, height, center) {
   const paper = resolvePaper(options);
-  paper.setup(canvas);
+  let record = canvasProjects.get(canvas);
+  if (record && record.paper !== paper) {
+    record.project.remove();
+    record = null;
+  }
+  if (!record) {
+    paper.setup(canvas);
+    record = { paper, project: paper.project };
+    canvasProjects.set(canvas, record);
+  }
+  record.project.activate();
   paper.project.activeLayer.removeChildren();
   paper.view.viewSize = new paper.Size(width, height);
   paper.view.center = center || [0, 0];
@@ -408,7 +439,7 @@ export function mountGuide(container, data, options = {}) {
   const root = reset(container, 'po-guide');
   if (!hasRuntime(options)) {
     fallback(root, data, Object.assign({ lang }, options), 'assets/guide.png');
-    return { destroy: () => container.replaceChildren() };
+    return mountHandle(root);
   }
 
   const grid = document.createElement('div');
@@ -441,7 +472,7 @@ export function mountGuide(container, data, options = {}) {
     quality.textContent = drawGuide(canvas, card.demoId || card.id, options);
   });
   root.appendChild(grid);
-  return { destroy: () => container.replaceChildren() };
+  return mountHandle(root);
 }
 
 export function mountGallery(container, data, options = {}) {
@@ -449,7 +480,7 @@ export function mountGallery(container, data, options = {}) {
   const root = reset(container, 'po-gallery');
   if (!hasRuntime(options)) {
     fallback(root, data, Object.assign({ lang }, options), 'assets/gallery.png');
-    return { destroy: () => container.replaceChildren() };
+    return mountHandle(root);
   }
 
   const stack = document.createElement('div');
@@ -467,6 +498,7 @@ export function mountGallery(container, data, options = {}) {
 
   function render() {
     tabs.replaceChildren();
+    releaseProjects(content);
     content.replaceChildren();
     (data.tabs || []).forEach((tab) => {
       const button = document.createElement('button');
@@ -525,7 +557,7 @@ export function mountGallery(container, data, options = {}) {
   }
 
   render();
-  return { destroy: () => container.replaceChildren() };
+  return mountHandle(root);
 }
 
 function readControlValue(control, element) {
@@ -569,7 +601,7 @@ export function mountPlayground(container, data, options = {}) {
   const root = reset(container, 'po-playground-root');
   if (!hasRuntime(options)) {
     fallback(root, data, Object.assign({ lang }, options), 'assets/playground.png');
-    return { destroy: () => container.replaceChildren() };
+    return mountHandle(root);
   }
 
   const presets = data.presets || [];
@@ -680,7 +712,7 @@ export function mountPlayground(container, data, options = {}) {
 
   mountControls();
   rerender();
-  return { destroy: () => container.replaceChildren() };
+  return mountHandle(root);
 }
 
 export default {

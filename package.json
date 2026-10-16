@@ -35,7 +35,8 @@
     "build:dev-site": "npm run build && node scripts/build-dev-site.js",
     "prepack": "npm run build:dev-site",
     "prepublishOnly": "npm run release:check",
-    "test": "npm run build && npm run test:smoke && npm run test:stress:run && npm run test:fuzz:run",
+    "test": "npm run build && npm run test:smoke && npm run test:regression && npm run test:stress:run && npm run test:fuzz:run",
+    "test:regression": "node --test test/regression.js test/runtime-lifecycle.js",
     "test:dev-site": "npm run build:dev-site && node test/dev-site.js",
     "test:dev-site:run": "node test/dev-site.js",
     "test:smoke": "node test/smoke.js",
@@ -65,10 +66,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://gitlab.com/glenzli/paperjs-offset.git"
+    "url": "git+https://github.com/glenzli/paperjs-offset.git"
   },
   "bugs": {
-    "url": "https://gitlab.com/glenzli/paperjs-offset/-/issues"
+    "url": "https://github.com/glenzli/paperjs-offset/issues"
   },
   "keywords": [
     "paperjs",
