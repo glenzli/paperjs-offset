@@ -8,6 +8,8 @@ Language: [English](#english) | [中文](#中文)
 
 ## 中文
 
+Paper.js 已于 2026 年 10 月 22 日（UTC）通过 [PR #2422](https://github.com/paperjs/paper.js/pull/2422) 将原生路径偏移和描边轮廓功能合入 develop 分支。建议后续优先使用官方的 offset() 和 outline() API，并确认所用 Paper.js 版本已包含这些功能。
+
 ### 简介
 
 `paperjs-offset` 是 [Paper.js](https://paperjs.org/) 的路径偏移辅助库，用于生成闭合路径偏移、描边轮廓，以及分析偏移结果质量。
@@ -387,6 +389,8 @@ MIT。详见 [LICENSE](LICENSE)。
 <a id="english"></a>
 
 ## English
+
+Paper.js merged native path offsetting and stroke outline support into its develop branch on October 22, 2026 (UTC), via [PR #2422](https://github.com/paperjs/paper.js/pull/2422). We recommend using the official offset() and outline() APIs going forward. Please make sure your Paper.js version includes these features.
 
 ### Overview
 
